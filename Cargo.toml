@@ -1,0 +1,9 @@
+[package]
+name = "bottlerocket-bootstrap-associate-eip"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aws-config = "0.48.0"
+aws-sdk-ec2 = "0.18.0"
+tokio = { version = "1", features = ["macros"] }
