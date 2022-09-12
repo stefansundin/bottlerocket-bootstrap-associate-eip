@@ -64,3 +64,9 @@ journalctl -u bootstrap-containers@associate-eip.service
 ```
 
 If you are unable to connect to the instance then wait 10 minutes and then check the EC2 instance system log.
+
+If you want more logging enabled then use the `debug` image:
+
+```toml
+source = "public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:debug"
+```

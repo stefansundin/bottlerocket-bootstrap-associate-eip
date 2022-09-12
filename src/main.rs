@@ -3,6 +3,8 @@
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), std::io::Error> {
+  env_logger::init();
+
   // Read the container user-data which contains the allocation id
   let allocation_id =
     std::fs::read_to_string("/.bottlerocket/bootstrap-containers/current/user-data")
