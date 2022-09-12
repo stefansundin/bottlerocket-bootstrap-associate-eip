@@ -1,0 +1,7 @@
+Thumbs.db
+*.DS_Store
+
+/target
+/build.sh
+.gitignore
+Dockerfile*
