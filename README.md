@@ -70,3 +70,13 @@ If you want more logging enabled then use the `debug` image:
 ```toml
 source = "public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:debug"
 ```
+
+
+## Developing
+
+There is an integration test that simulates the required environment.
+
+```
+export RUST_LOG=aws
+cargo test -- --nocapture
+```
