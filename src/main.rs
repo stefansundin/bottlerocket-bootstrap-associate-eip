@@ -1,22 +1,43 @@
 // Copyright 2022 Stefan Sundin
 // Licensed under the Apache License 2.0
 
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct Input {
+  allocation_id: String,
+  allow_reassociation: Option<bool>,
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), std::io::Error> {
   env_logger::init();
 
   // Read the container user-data which contains the allocation id
+  let input: Input;
   let user_data_path = std::env::var("USER_DATA_PATH")
     .unwrap_or("/.bottlerocket/bootstrap-containers/current/user-data".to_string());
-  let allocation_id =
+  let userdata =
     std::fs::read_to_string(user_data_path).expect("could not read container user-data");
-  if !allocation_id.starts_with("eipalloc-") {
+  if userdata.starts_with("{") {
+    input =
+      serde_json::from_str(&userdata.to_owned()).expect("user-data JSON is not well-formatted");
+  } else {
+    input = Input {
+      allocation_id: userdata,
+      allow_reassociation: Some(true),
+    };
+  }
+  if !input.allocation_id.starts_with("eipalloc-") {
     panic!(
-      "Error: user-data does not contain an eipalloc: {:?}",
-      allocation_id
+      "Error: invalid input (expected \"eipalloc-\"): {:?}",
+      input.allocation_id
     );
   }
-  println!("Allocation ID: {}", allocation_id);
+  println!("Allocation ID: {}", input.allocation_id);
+  let allow_reassociation = input.allow_reassociation.unwrap_or(true);
+  println!("Allow Reassociation: {}", allow_reassociation);
 
   // Get region and instance id from instance metadata
   let region_provider = aws_config::imds::region::ImdsRegionProvider::builder().build();
@@ -54,9 +75,9 @@ async fn main() -> Result<(), std::io::Error> {
 
   let response = ec2_client
     .associate_address()
-    .allocation_id(allocation_id)
     .instance_id(instance_id)
-    .allow_reassociation(true)
+    .allocation_id(input.allocation_id)
+    .allow_reassociation(allow_reassociation)
     .send()
     .await
     .expect("could not associate EIP");

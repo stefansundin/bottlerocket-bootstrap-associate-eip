@@ -11,8 +11,18 @@ mod tests {
   use hyper::{Body, Request, Response, Server};
 
   const ALLOCATION_ID: &str = "eipalloc-01234567890abcdef";
+  const ALLOW_REASSOCIATION: bool = true;
   const INSTANCE_ID: &str = "i-01234567890abcdef";
   const REGION: &str = "us-west-2";
+  // const USER_DATA: &str = ALLOCATION_ID;
+  // const USER_DATA: &str = const_str::concat!(r#"{"AllocationId":""#, ALLOCATION_ID, r#""}"#,);
+  const USER_DATA: &str = const_str::concat!(
+    r#"{"AllocationId":""#,
+    ALLOCATION_ID,
+    r#"","AllowReassociation":"#,
+    ALLOW_REASSOCIATION,
+    r#"}"#,
+  );
 
   async fn handle(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     // eprintln!("handler: {:?}", req.uri());
@@ -114,7 +124,7 @@ mod tests {
     let user_data_file =
       tempfile::NamedTempFile::new().expect("could not create user-data temporary file");
     let user_data_path = user_data_file.into_temp_path();
-    fs::write(&user_data_path, ALLOCATION_ID).expect("could not write container user-data");
+    fs::write(&user_data_path, USER_DATA).expect("could not write container user-data");
 
     // Prepare the environment variables
     let env: HashMap<&str, &str> = HashMap::from([
@@ -189,6 +199,7 @@ mod tests {
       stdout,
       [
         const_str::concat!("Allocation ID: ", ALLOCATION_ID),
+        const_str::concat!("Allow Reassociation: ", ALLOW_REASSOCIATION),
         const_str::concat!("Region: Some(Region(\"", REGION, "\"))"),
         const_str::concat!("Instance ID: ", INSTANCE_ID),
         "Success!"

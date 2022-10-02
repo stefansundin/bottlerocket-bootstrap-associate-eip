@@ -20,6 +20,17 @@ The `user-data` contains the Elastic IP Allocation ID that you want to associate
 echo eipalloc-01234567890abcdef | base64
 ```
 
+### Additional options
+
+There are additional features besides the simple use-case demonstrated above. To use the additional options you need to pass in a JSON string in the `user-data` instead of just the `eipalloc` identifier.
+
+```shell
+echo '{"AllocationId":"eipalloc-01234567890abcdef","AllowReassociation":true}' | base64
+```
+
+- `AllocationId` is required.
+- `AllowReassociation` is `true` if omitted.
+
 
 ## Feedback
 
