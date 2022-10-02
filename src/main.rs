@@ -45,7 +45,10 @@ async fn main() -> Result<(), std::io::Error> {
   if region == None {
     panic!("Error: could not get region from IMDS.");
   }
-  println!("Region: {:?}", region);
+  println!(
+    "Region: {}",
+    region.clone().expect("error unwrapping region").to_string()
+  );
 
   let imds_client = aws_config::imds::client::Client::builder()
     .build()

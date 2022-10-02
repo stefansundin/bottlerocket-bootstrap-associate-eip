@@ -200,7 +200,7 @@ mod tests {
       [
         const_str::concat!("Allocation ID: ", ALLOCATION_ID),
         const_str::concat!("Allow Reassociation: ", ALLOW_REASSOCIATION),
-        const_str::concat!("Region: Some(Region(\"", REGION, "\"))"),
+        const_str::concat!("Region: ", REGION),
         const_str::concat!("Instance ID: ", INSTANCE_ID),
         "Success!"
       ]
