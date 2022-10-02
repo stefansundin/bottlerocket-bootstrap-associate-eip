@@ -6,9 +6,10 @@ async fn main() -> Result<(), std::io::Error> {
   env_logger::init();
 
   // Read the container user-data which contains the allocation id
+  let user_data_path = std::env::var("USER_DATA_PATH")
+    .unwrap_or("/.bottlerocket/bootstrap-containers/current/user-data".to_string());
   let allocation_id =
-    std::fs::read_to_string("/.bottlerocket/bootstrap-containers/current/user-data")
-      .expect("could not read container user-data");
+    std::fs::read_to_string(user_data_path).expect("could not read container user-data");
   if !allocation_id.starts_with("eipalloc-") {
     panic!(
       "Error: user-data does not contain an eipalloc: {:?}",
