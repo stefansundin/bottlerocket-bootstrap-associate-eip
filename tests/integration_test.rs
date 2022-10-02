@@ -3,13 +3,16 @@ mod tests {
   use std::convert::Infallible;
   use std::env;
   use std::fs;
+  use std::io::{BufRead, BufReader};
   use std::process::{Command, Stdio};
+  use std::thread;
 
   use hyper::service::{make_service_fn, service_fn};
   use hyper::{Body, Request, Response, Server};
 
   const ALLOCATION_ID: &str = "eipalloc-01234567890abcdef";
   const INSTANCE_ID: &str = "i-01234567890abcdef";
+  const REGION: &str = "us-west-2";
 
   async fn handle(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     // eprintln!("handler: {:?}", req.uri());
@@ -22,7 +25,7 @@ mod tests {
           .expect("response builder"),
       );
     } else if req.uri() == "/latest/meta-data/placement/region" {
-      return Ok(Response::new(Body::from("us-west-2")));
+      return Ok(Response::new(Body::from(REGION)));
     } else if req.uri() == "/latest/meta-data/instance-id" {
       return Ok(Response::new(Body::from(INSTANCE_ID)));
     } else if req.uri() == "/latest/meta-data/iam/security-credentials/" {
@@ -128,23 +131,69 @@ mod tests {
         aws_ec2_metadata_service_endpoint.as_str(),
       ),
       // ("RUST_BACKTRACE", "1"),
+      ("RUST_LOG_STYLE", "always"), // get colored env_logger output even though we're capturing the output
     ]);
     println!("{:?}", env);
 
-    // Run the program
-    let output = Command::new(env!("CARGO_BIN_EXE_bottlerocket-bootstrap-associate-eip"))
-      .stdin(Stdio::null())
+    // Run the program and capture the output while at the same time sending it to stdout and stderr (I wish this was easier)
+    let mut child = Command::new(env!("CARGO_BIN_EXE_bottlerocket-bootstrap-associate-eip"))
       .envs(&env)
+      .stdin(Stdio::null())
+      .stdout(Stdio::piped())
+      .stderr(Stdio::piped())
       .spawn()
-      .expect("failed to run program")
-      .wait_with_output()
-      .expect("fail");
+      .expect("failed to run program");
+
+    let child_stdout = child.stdout.take().expect("could not take stdout");
+    let child_stderr = child.stderr.take().expect("could not take stderr");
+
+    let (stdout_tx, stdout_rx) = std::sync::mpsc::channel();
+    let (stderr_tx, stderr_rx) = std::sync::mpsc::channel();
+
+    let stdout_thread = thread::spawn(move || {
+      let stdout_lines = BufReader::new(child_stdout).lines();
+      for line in stdout_lines {
+        let line = line.expect("error reading stdout");
+        println!("{}", line);
+        stdout_tx.send(line).expect("error capturing stdout");
+      }
+    });
+
+    let stderr_thread = thread::spawn(move || {
+      let stderr_lines = BufReader::new(child_stderr).lines();
+      for line in stderr_lines {
+        let line = line.expect("error reading stderr");
+        eprintln!("{}", line);
+        stderr_tx.send(line).expect("error capturing stderr");
+      }
+    });
+
+    let status = child.wait().expect("error waiting on process");
+
+    stdout_thread.join().expect("error joining stdout thread");
+    stderr_thread.join().expect("error joining stderr thread");
+
+    let stdout = stdout_rx.into_iter().collect::<Vec<String>>();
+    let _stderr = stderr_rx.into_iter().collect::<Vec<String>>();
 
     // Stop the webserver
     let _ = webserver_shutdown_tx.send(());
 
+    // eprintln!("status: {:?}", status);
+    // eprintln!("stdout: {:?}", stdout);
+    // eprintln!("stderr: {:?}", _stderr);
+
     // Check for success
-    assert!(output.status.success());
+    assert!(status.success());
+    assert_eq!(
+      stdout,
+      [
+        const_str::concat!("Allocation ID: ", ALLOCATION_ID),
+        const_str::concat!("Region: Some(Region(\"", REGION, "\"))"),
+        const_str::concat!("Instance ID: ", INSTANCE_ID),
+        "Success!"
+      ]
+    );
 
     ()
   }

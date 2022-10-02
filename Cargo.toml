@@ -12,6 +12,7 @@ tokio = { version = "1", features = ["macros"] }
 
 [dev-dependencies]
 chrono = "0.4.22"
+const-str = "0.5.1"
 futures = "0.3.24"
 hyper = { version = "0.14.20", features = ["server"] }
 serde_urlencoded = "0.7.1"
