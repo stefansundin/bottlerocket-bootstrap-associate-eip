@@ -333,6 +333,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-ec2",
  "env_logger",
+ "http",
  "tokio",
 ]
 

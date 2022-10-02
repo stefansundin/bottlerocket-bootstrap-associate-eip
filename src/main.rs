@@ -42,7 +42,15 @@ async fn main() -> Result<(), std::io::Error> {
     .region(region)
     .load()
     .await;
-  let ec2_client = aws_sdk_ec2::Client::new(&shared_config);
+
+  let mut ec2_config = aws_sdk_ec2::config::Builder::from(&shared_config);
+  if let Ok(ec2_endpoint) = std::env::var("AWS_EC2_ENDPOINT") {
+    ec2_config = ec2_config.endpoint_resolver(aws_sdk_ec2::Endpoint::immutable(
+      http::uri::Uri::from_maybe_shared(ec2_endpoint)
+        .expect("could not configure the EC2 endpoint uri"),
+    ))
+  }
+  let ec2_client = aws_sdk_ec2::client::Client::from_conf(ec2_config.build());
 
   let response = ec2_client
     .associate_address()
