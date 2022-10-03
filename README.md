@@ -1,4 +1,4 @@
-This is a bootstrap container for Bottlerocket that associates an elastic IP address to the instance when it starts up the first time. This is useful if you want to run a single EC2 instance that maintains the same IP address even if the instance is replaced.
+This is a bootstrap container for Bottlerocket that associates an elastic IP address to the EC2 instance when it starts up. This is useful if you want to run an EC2 instance that maintains the same IP address even if it is replaced. You can also associate an address from a pool of elastic IP addresses (see below for additional options).
 
 Because Bottlerocket doesn't allow for traditional startup scripts in the user data, you can't just run aws-cli commands like you may be used to. Bottlerocket provides a way to run bootstrap containers instead, which you can use to configure the system when it starts up.
 
@@ -28,7 +28,21 @@ There are additional features besides the simple use-case demonstrated above. To
 echo '{"AllocationId":"eipalloc-01234567890abcdef","AllowReassociation":true}' | base64
 ```
 
-- `AllocationId` is required.
+If you want to dynamically find an EIP to use, e.g. based on tags, then you can use the `Filters` option (equivalent to [`--filters`](https://awscli.amazonaws.com/v2/documentation/api/latest/reference/ec2/describe-addresses.html#options) for `aws ec2 describe-addresses`):
+
+```shell
+echo '{"Filters":[{"Name":"tag:Pool","Values":["ecs"]}]}' | base64
+```
+
+**⚠️ When `Filters` is used, the program will try to pick an unallocated EIP at random. If all the EIPs are in use then one will be chosen at random anyway. Set `AllowReassociation` to `false` to exit with an error instead. ⚠️**
+
+You can specify an empty array to have the program pick any EIP in the account:
+
+```shell
+echo '{"Filters":[]}' | base64
+```
+
+- Either `AllocationId` or `Filters` is required.
 - `AllowReassociation` is `true` if omitted.
 
 
@@ -55,13 +69,16 @@ Make sure your instance has permissions to associate elastic IP addresses.
         {
             "Effect": "Allow",
             "Action": [
-                "ec2:AssociateAddress"
+                "ec2:AssociateAddress",
+                "ec2:DescribeAddresses"
             ],
             "Resource": "*"
         }
     ]
 }
 ```
+
+You only need `ec2:DescribeAddresses` if you want to use the `Filters` option.
 
 
 ## Troubleshooting

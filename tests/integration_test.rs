@@ -12,17 +12,29 @@ mod tests {
 
   const ALLOCATION_ID: &str = "eipalloc-01234567890abcdef";
   const ALLOW_REASSOCIATION: bool = true;
-  const INSTANCE_ID: &str = "i-01234567890abcdef";
-  const REGION: &str = "us-west-2";
+
   // const USER_DATA: &str = ALLOCATION_ID;
-  // const USER_DATA: &str = const_str::concat!(r#"{"AllocationId":""#, ALLOCATION_ID, r#""}"#,);
+  // const USER_DATA: &str = const_str::concat!(r#"{"AllocationId":""#, ALLOCATION_ID, r#""}"#);
+  // const USER_DATA: &str = const_str::concat!(
+  //   r#"{"AllocationId":""#,
+  //   ALLOCATION_ID,
+  //   r#"","AllowReassociation":"#,
+  //   ALLOW_REASSOCIATION,
+  //   r#"}"#,
+  // );
   const USER_DATA: &str = const_str::concat!(
-    r#"{"AllocationId":""#,
-    ALLOCATION_ID,
-    r#"","AllowReassociation":"#,
+    r#"{"Filters":[{"Name":"tag:Pool","Values":["ecs"]}],"AllowReassociation":"#,
     ALLOW_REASSOCIATION,
     r#"}"#,
   );
+  // const USER_DATA: &str = const_str::concat!(
+  //   r#"{"Filters":[],"AllowReassociation":"#,
+  //   ALLOW_REASSOCIATION,
+  //   r#"}"#,
+  // );
+
+  const INSTANCE_ID: &str = "i-01234567890abcdef";
+  const REGION: &str = "us-west-2";
 
   async fn handle(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     // eprintln!("handler: {:?}", req.uri());
@@ -74,11 +86,77 @@ mod tests {
         .collect::<HashMap<_, _>>();
       // eprintln!("params: {:?}", params);
 
-      if params["Action"] != "AssociateAddress"
-        || params["AllocationId"] != ALLOCATION_ID
-        || params["InstanceId"] != INSTANCE_ID
-        || params["AllowReassociation"] != "true"
-      {
+      if params["Action"] == "DescribeAddresses" {
+        let response = const_str::concat!(
+          r#"<?xml version="1.0" encoding="UTF-8"?>
+<DescribeAddressesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+    <requestId>626a6a86-7f79-42c0-ae94-a345e967db2b</requestId>
+    <addressesSet>
+        <item>
+            <publicIp>1.1.1.1</publicIp>
+            <allocationId>"#,
+          ALLOCATION_ID,
+          r#"</allocationId>
+            <domain>vpc</domain>
+            <tagSet>
+                <item>
+                    <key>Pool</key>
+                    <value>ecs</value>
+                </item>
+            </tagSet>
+            <publicIpv4Pool>amazon</publicIpv4Pool>
+            <networkBorderGroup>us-west-2</networkBorderGroup>
+        </item>
+        <item>
+            <publicIp>1.1.1.2</publicIp>
+            <allocationId>eipalloc-00000000000000002</allocationId>
+            <domain>vpc</domain>
+            <instanceId>i-1111111111111111a</instanceId>
+            <associationId>eipassoc-2222222222222222a</associationId>
+            <networkInterfaceId>eni-3333333333333333a</networkInterfaceId>
+            <networkInterfaceOwnerId>111111111111</networkInterfaceOwnerId>
+            <privateIpAddress>10.10.10.10</privateIpAddress>
+            <tagSet>
+                <item>
+                    <key>Pool</key>
+                    <value>ecs</value>
+                </item>
+            </tagSet>
+            <publicIpv4Pool>amazon</publicIpv4Pool>
+            <networkBorderGroup>us-west-2</networkBorderGroup>
+        </item>
+    </addressesSet>
+</DescribeAddressesResponse>
+"#
+        );
+        // eprintln!("response: {:?}", response);
+        return Ok(Response::new(Body::from(response)));
+      } else if params["Action"] == "AssociateAddress" {
+        if params["AllocationId"] != ALLOCATION_ID
+          || params["InstanceId"] != INSTANCE_ID
+          || params["AllowReassociation"] != ALLOW_REASSOCIATION.to_string()
+        {
+          eprintln!("Unexpected params: {:?}", params);
+          return Ok(
+            Response::builder()
+              .status(422)
+              .body(Body::from(""))
+              .expect("response builder"),
+          );
+        }
+
+        // TODO: assert that this response was given in the test's lifetime
+        let response = r#"<?xml version="1.0" encoding="UTF-8"?>
+<AssociateAddressResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+    <requestId>626a6a86-7f79-42c0-ae94-a345e967db2b</requestId>
+    <return>true</return>
+    <associationId>eipassoc-01234567890abcdef</associationId>
+</AssociateAddressResponse>
+"#;
+        // eprintln!("response: {:?}", response);
+        return Ok(Response::new(Body::from(response)));
+      } else {
+        eprintln!("Unknown Action: {:?}", params["Action"]);
         return Ok(
           Response::builder()
             .status(422)
@@ -86,17 +164,6 @@ mod tests {
             .expect("response builder"),
         );
       }
-
-      // TODO: assert that this response was given in the test's lifetime
-      let response = r#"<?xml version="1.0" encoding="UTF-8"?>
-<AssociateAddressResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
-    <requestId>626a6a86-7f79-42c0-ae94-a345e967db2b</requestId>
-    <return>true</return>
-    <associationId>eipassoc-01234567890abcdef</associationId>
-</AssociateAddressResponse>
-"#;
-      // eprintln!("response: {:?}", response);
-      return Ok(Response::new(Body::from(response)));
     } else {
       println!("unexpected request: {:?}", req);
       panic!("unexpected request");
@@ -141,9 +208,9 @@ mod tests {
         aws_ec2_metadata_service_endpoint.as_str(),
       ),
       // ("RUST_BACKTRACE", "1"),
-      ("RUST_LOG_STYLE", "always"), // get colored env_logger output even though we're capturing the output
+      // ("RUST_LOG", "aws"),
+      // ("RUST_LOG_STYLE", "always"), // get colored env_logger output even though we're capturing the output
     ]);
-    println!("{:?}", env);
 
     // Run the program and capture the output while at the same time sending it to stdout and stderr (I wish this was easier)
     let mut child = Command::new(env!("CARGO_BIN_EXE_bottlerocket-bootstrap-associate-eip"))
@@ -195,14 +262,32 @@ mod tests {
 
     // Check for success
     assert!(status.success());
+
+    // This check is for the simple case when using a specific AllocationId:
+    // assert_eq!(
+    //   stdout,
+    //   [
+    //     const_str::concat!("Allocation ID: ", ALLOCATION_ID),
+    //     const_str::concat!("Allow Reassociation: ", ALLOW_REASSOCIATION),
+    //     const_str::concat!("Region: ", REGION),
+    //     const_str::concat!("Instance ID: ", INSTANCE_ID),
+    //     "Success!",
+    //     "AssociateAddressOutput { association_id: Some(\"eipassoc-01234567890abcdef\") }"
+    //   ]
+    // );
+
+    // This check is for when using Filters:
     assert_eq!(
       stdout,
       [
-        const_str::concat!("Allocation ID: ", ALLOCATION_ID),
         const_str::concat!("Allow Reassociation: ", ALLOW_REASSOCIATION),
         const_str::concat!("Region: ", REGION),
         const_str::concat!("Instance ID: ", INSTANCE_ID),
-        "Success!"
+        "Filters: [Filter { name: Some(\"tag:Pool\"), values: Some([\"ecs\"]) }]",
+        "Found 2 addresses.",
+        "Only eipalloc-01234567890abcdef left.",
+        "Success!",
+        "AssociateAddressOutput { association_id: Some(\"eipassoc-01234567890abcdef\") }"
       ]
     );
 
