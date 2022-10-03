@@ -102,17 +102,16 @@ async fn main() -> Result<(), std::io::Error> {
   if input.allocation_id.is_some() {
     allocation_id = input.allocation_id.unwrap();
   } else if let Some(filters) = input.filters {
-    // Convert the filters to the SDK filters
-    // This is a bit annoying, is there a better way?
-    let mut filters_input: Vec<aws_sdk_ec2::model::Filter> = vec![];
-    for filter in filters.into_iter() {
-      filters_input.push(
+    // Convert the filters to SDK filters
+    let filters_input = filters
+      .into_iter()
+      .map(|filter| {
         aws_sdk_ec2::model::Filter::builder()
           .name(filter.name)
           .set_values(Some(filter.values))
-          .build(),
-      );
-    }
+          .build()
+      })
+      .collect();
     println!("Filters: {:?}", filters_input);
 
     // Describe the addresses
