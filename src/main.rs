@@ -23,7 +23,7 @@ struct Filter {
 async fn main() -> Result<(), std::io::Error> {
   env_logger::init();
 
-  // Read the container user-data which contains the allocation id
+  // Read the container user-data
   let input: Input;
   let user_data_path = std::env::var("USER_DATA_PATH")
     .unwrap_or("/.bottlerocket/bootstrap-containers/current/user-data".to_string());

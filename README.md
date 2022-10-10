@@ -42,15 +42,10 @@ You can specify an empty array to have the program pick any EIP in the account:
 echo '{"Filters":[]}' | base64
 ```
 
+Reference:
+
 - Either `AllocationId` or `Filters` is required.
 - `AllowReassociation` is `true` if omitted.
-
-
-## Feedback
-
-This is one of my first Rust programs. If you have ideas for improvements, please open an issue or a pull request.
-
-If you have questions then please open an issue or a discussion.
 
 
 ## Supported Bottlerocket versions
@@ -108,3 +103,10 @@ There is an integration test that simulates the required environment.
 export RUST_LOG=aws
 cargo test -- --nocapture
 ```
+
+
+## Feedback
+
+This is one of my first Rust programs. If you have ideas for improvements, please open an issue or a pull request.
+
+If you have questions then please open an issue or a discussion.
