@@ -58,8 +58,16 @@ async fn main() -> Result<(), std::io::Error> {
   let allow_reassociation = input.allow_reassociation.unwrap_or(true);
   println!("Allow Reassociation: {}", allow_reassociation);
 
+  // Initialize IMDS client
+  let imds_client = aws_config::imds::client::Client::builder()
+    .build()
+    .await
+    .expect("could not initialize the IMDS client");
+
   // Get region and instance id from instance metadata
-  let region_provider = aws_config::imds::region::ImdsRegionProvider::builder().build();
+  let region_provider = aws_config::imds::region::ImdsRegionProvider::builder()
+    .imds_client(imds_client.clone())
+    .build();
   let region = region_provider.region().await;
   if region == None {
     panic!("Error: could not get region from IMDS.");
@@ -72,19 +80,18 @@ async fn main() -> Result<(), std::io::Error> {
       .to_string()
   );
 
-  let imds_client = aws_config::imds::client::Client::builder()
-    .build()
-    .await
-    .expect("could not initialize the IMDS client");
-
   let instance_id = imds_client
     .get("/latest/meta-data/instance-id")
     .await
     .expect("could not get the instance ID from IMDS");
   println!("Instance ID: {}", instance_id);
 
+  let credentials_provider = aws_config::imds::credentials::ImdsCredentialsProvider::builder()
+    .imds_client(imds_client.clone())
+    .build();
+
   let shared_config = aws_config::from_env()
-    .credentials_provider(aws_config::imds::credentials::ImdsCredentialsProvider::builder().build())
+    .credentials_provider(credentials_provider)
     .region(region)
     .load()
     .await;
