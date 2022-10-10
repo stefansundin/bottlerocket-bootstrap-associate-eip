@@ -14,7 +14,7 @@ docker buildx build --pull --push --progress plain --platform linux/arm64 -t pub
 docker buildx build --pull --push --progress plain --platform linux/arm64,linux/amd64 -t public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:debug -f Dockerfile.debug .
 
 # You probably want to change the tag name if you are not me:
-docker buildx build --push --progress plain --platform linux/arm64,linux/amd64 -t public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:v0.2.0 .
+docker buildx build --push --progress plain --platform linux/arm64,linux/amd64 -t public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:v0.2.1 .
 
 # If the new version is stable then update latest:
 docker buildx build --push --progress plain --platform linux/arm64,linux/amd64 -t public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:latest .
