@@ -3,16 +3,15 @@ FROM rust:1-bullseye AS builder
 ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y musl-tools
-
-WORKDIR /src
-
 ENV CC=musl-gcc
 ENV AR=ar
 ENV RUST_BACKTRACE=full
 
+RUN apt-get update && apt-get install -y musl-tools
+
+WORKDIR /src
 ADD . .
+RUN find
 
 RUN rustup --version
 

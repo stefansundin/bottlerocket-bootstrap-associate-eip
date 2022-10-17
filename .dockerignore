@@ -3,6 +3,9 @@ Thumbs.db
 
 /target
 /tests
+.git
 .gitignore
+.rustfmt.toml
+.dockerignore
 Dockerfile*
 *.md
