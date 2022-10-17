@@ -50,7 +50,7 @@ Reference:
 
 ## Supported Bottlerocket versions
 
-Tested on Bottlerocket v1.9.2.
+Tested on Bottlerocket v1.9.2 and v1.10.0.
 
 
 ## IAM Permissions
