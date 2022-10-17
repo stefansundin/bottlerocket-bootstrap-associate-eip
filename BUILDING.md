@@ -17,7 +17,7 @@ docker buildx build --pull --push --progress plain --platform linux/arm64,linux/
 docker buildx build --push --progress plain --platform linux/arm64,linux/amd64 -t public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:v0.2.1 .
 
 # If the new version is stable then update latest:
-docker buildx build --push --progress plain --platform linux/arm64,linux/amd64 -t public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:latest .
+docker buildx imagetools create -t public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:latest public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:v0.2.1
 ```
 
 If the build crashes then it is most likely because Docker ran out of memory. Increase the amount of RAM allocated to Docker and quit other programs during the build.
