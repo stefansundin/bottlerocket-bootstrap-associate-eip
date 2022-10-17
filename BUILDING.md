@@ -1,9 +1,13 @@
+You can build the docker image by running:
+
+```shell
+# Simple build for your current architecture:
+docker build --pull --progress plain -t bottlerocket-bootstrap-associate-eip .
+```
+
 To build a multi-arch docker image you can run:
 
 ```shell
-# Simple build for one architecture:
-docker build --pull --progress plain -t bottlerocket-bootstrap-associate-eip .
-
 # Use buildx to build multi-arch images:
 docker buildx create --use --name multiarch --node multiarch0
 
