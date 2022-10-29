@@ -21,14 +21,8 @@ RUN case "$TARGETARCH" in \
       *) echo "Does not support $TARGETARCH" && exit 1 ;; \
     esac && \
     rustup target add $TARGET && \
-    cargo build --release --target $TARGET && \
-    mv target/$TARGET/release/bottlerocket-bootstrap-associate-eip target/release/
-
-# Reduce the size of the binary
-RUN ls -l target/release/bottlerocket-bootstrap-associate-eip
-RUN strip -s target/release/bottlerocket-bootstrap-associate-eip
-RUN ls -l target/release/bottlerocket-bootstrap-associate-eip
-
+    cargo build --profile release-build --target $TARGET && \
+    mv target/$TARGET/release-build/bottlerocket-bootstrap-associate-eip target/
 
 # Copy the binary into an empty docker image
 FROM scratch
@@ -36,7 +30,7 @@ FROM scratch
 LABEL org.opencontainers.image.authors="Stefan Sundin"
 LABEL org.opencontainers.image.url="https://github.com/stefansundin/bottlerocket-bootstrap-associate-eip"
 
-COPY --from=builder /src/target/release/bottlerocket-bootstrap-associate-eip /bottlerocket-bootstrap-associate-eip
+COPY --from=builder /src/target/bottlerocket-bootstrap-associate-eip /bottlerocket-bootstrap-associate-eip
 
 # Use the CA bundle from the Bottlerocket file system
 ENV SSL_CERT_FILE=/.bottlerocket/rootfs/etc/pki/tls/certs/ca-bundle.crt

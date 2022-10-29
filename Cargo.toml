@@ -21,3 +21,15 @@ hyper = { version = "0.14.20", features = ["server"] }
 serde_urlencoded = "0.7.1"
 tempfile = "3.3.0"
 tokio = { version = "1", features = ["rt-multi-thread"] }
+
+[profile.release-build]
+inherits = "release"
+opt-level = "s"
+strip = true
+debug = false
+
+[profile.debug-build]
+inherits = "release"
+opt-level = "s"
+strip = false
+debug = true
