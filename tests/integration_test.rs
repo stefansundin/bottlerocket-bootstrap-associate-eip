@@ -105,7 +105,9 @@ mod tests {
                 </item>
             </tagSet>
             <publicIpv4Pool>amazon</publicIpv4Pool>
-            <networkBorderGroup>us-west-2</networkBorderGroup>
+            <networkBorderGroup>"#,
+          REGION,
+          r#"</networkBorderGroup>
         </item>
         <item>
             <publicIp>1.1.1.2</publicIp>
@@ -123,7 +125,9 @@ mod tests {
                 </item>
             </tagSet>
             <publicIpv4Pool>amazon</publicIpv4Pool>
-            <networkBorderGroup>us-west-2</networkBorderGroup>
+            <networkBorderGroup>"#,
+          REGION,
+          r#"</networkBorderGroup>
         </item>
     </addressesSet>
 </DescribeAddressesResponse>
