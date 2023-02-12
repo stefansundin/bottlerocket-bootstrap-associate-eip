@@ -23,14 +23,21 @@ serde_urlencoded = "0.7.1"
 tempfile = "3.3.0"
 tokio = { version = "1.25.0", features = ["rt-multi-thread"] }
 
+[profile.release]
+strip = true
+
 [profile.release-build]
 inherits = "release"
-opt-level = "s"
+opt-level = "z"
 strip = true
 debug = false
+lto = true
+codegen-units = 1
 
 [profile.debug-build]
 inherits = "release"
-opt-level = "s"
+opt-level = "z"
 strip = false
 debug = true
+lto = true
+codegen-units = 1
