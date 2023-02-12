@@ -1,4 +1,4 @@
-// Copyright 2022 Stefan Sundin
+// Copyright 2023 Stefan Sundin
 // Licensed under the Apache License 2.0
 
 use rand::Rng;
@@ -86,16 +86,9 @@ async fn main() -> Result<(), std::io::Error> {
     .expect("could not get the instance ID from IMDS");
   println!("Instance ID: {}", instance_id);
 
-  // Cache the credentials
-  // https://github.com/awslabs/aws-sdk-rust/issues/629
-  let credentials_provider =
-    aws_credential_types::lazy_caching::LazyCachingCredentialsProvider::builder()
-      .load(
-        aws_config::imds::credentials::ImdsCredentialsProvider::builder()
-          .imds_client(imds_client.clone())
-          .build(),
-      )
-      .build();
+  let credentials_provider = aws_config::imds::credentials::ImdsCredentialsProvider::builder()
+    .imds_client(imds_client.clone())
+    .build();
 
   let shared_config = aws_config::from_env()
     .credentials_provider(credentials_provider)
