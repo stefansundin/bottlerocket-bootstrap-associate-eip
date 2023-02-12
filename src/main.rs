@@ -89,7 +89,7 @@ async fn main() -> Result<(), std::io::Error> {
   // Cache the credentials
   // https://github.com/awslabs/aws-sdk-rust/issues/629
   let credentials_provider =
-    aws_config::meta::credentials::lazy_caching::LazyCachingCredentialsProvider::builder()
+    aws_credential_types::lazy_caching::LazyCachingCredentialsProvider::builder()
       .load(
         aws_config::imds::credentials::ImdsCredentialsProvider::builder()
           .imds_client(imds_client.clone())
@@ -105,10 +105,7 @@ async fn main() -> Result<(), std::io::Error> {
 
   let mut ec2_config = aws_sdk_ec2::config::Builder::from(&shared_config);
   if let Ok(ec2_endpoint) = std::env::var("AWS_EC2_ENDPOINT") {
-    ec2_config = ec2_config.endpoint_resolver(
-      aws_sdk_ec2::Endpoint::immutable(ec2_endpoint)
-        .expect("could not configure the EC2 endpoint uri"),
-    )
+    ec2_config = ec2_config.endpoint_url(ec2_endpoint);
   }
   let ec2_client = aws_sdk_ec2::client::Client::from_conf(ec2_config.build());
 
