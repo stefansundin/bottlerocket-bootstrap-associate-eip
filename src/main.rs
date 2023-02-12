@@ -105,10 +105,10 @@ async fn main() -> Result<(), std::io::Error> {
 
   let mut ec2_config = aws_sdk_ec2::config::Builder::from(&shared_config);
   if let Ok(ec2_endpoint) = std::env::var("AWS_EC2_ENDPOINT") {
-    ec2_config = ec2_config.endpoint_resolver(aws_sdk_ec2::Endpoint::immutable(
-      http::uri::Uri::from_maybe_shared(ec2_endpoint)
+    ec2_config = ec2_config.endpoint_resolver(
+      aws_sdk_ec2::Endpoint::immutable(ec2_endpoint)
         .expect("could not configure the EC2 endpoint uri"),
-    ))
+    )
   }
   let ec2_client = aws_sdk_ec2::client::Client::from_conf(ec2_config.build());
 
