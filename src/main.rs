@@ -110,7 +110,7 @@ async fn main() -> Result<(), std::io::Error> {
     let filters_input = filters
       .into_iter()
       .map(|filter| {
-        aws_sdk_ec2::model::Filter::builder()
+        aws_sdk_ec2::types::Filter::builder()
           .name(filter.name)
           .set_values(Some(filter.values))
           .build()
@@ -134,7 +134,7 @@ async fn main() -> Result<(), std::io::Error> {
     println!("Found {} addresses.", addresses.len());
 
     // Try to find a suitable address to use
-    let mut available_addresses: Vec<&aws_sdk_ec2::model::Address> = addresses
+    let mut available_addresses: Vec<&aws_sdk_ec2::types::Address> = addresses
       .iter()
       .filter(|addr| addr.instance_id.is_none())
       .collect();

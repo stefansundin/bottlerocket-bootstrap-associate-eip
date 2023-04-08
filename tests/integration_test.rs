@@ -276,7 +276,7 @@ mod tests {
     //     const_str::concat!("Region: ", REGION),
     //     const_str::concat!("Instance ID: ", INSTANCE_ID),
     //     "Success!",
-    //     "AssociateAddressOutput { association_id: Some(\"eipassoc-01234567890abcdef\") }"
+    //     "AssociateAddressOutput { association_id: Some(\"eipassoc-01234567890abcdef\"), _request_id: None }"
     //   ]
     // );
 
@@ -291,7 +291,7 @@ mod tests {
         "Found 2 addresses.",
         "Only eipalloc-01234567890abcdef left.",
         "Success!",
-        "AssociateAddressOutput { association_id: Some(\"eipassoc-01234567890abcdef\") }"
+        "AssociateAddressOutput { association_id: Some(\"eipassoc-01234567890abcdef\"), _request_id: None }"
       ]
     );
 
