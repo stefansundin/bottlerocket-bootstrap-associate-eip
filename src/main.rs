@@ -59,10 +59,7 @@ async fn main() -> Result<(), std::io::Error> {
   println!("Allow Reassociation: {}", allow_reassociation);
 
   // Initialize IMDS client
-  let imds_client = aws_config::imds::client::Client::builder()
-    .build()
-    .await
-    .expect("could not initialize the IMDS client");
+  let imds_client = aws_config::imds::client::Client::builder().build();
 
   // Get region and instance id from instance metadata
   let region_provider = aws_config::imds::region::ImdsRegionProvider::builder()
@@ -80,17 +77,18 @@ async fn main() -> Result<(), std::io::Error> {
       .to_string()
   );
 
-  let instance_id = imds_client
+  let instance_id_result = imds_client
     .get("/latest/meta-data/instance-id")
     .await
     .expect("could not get the instance ID from IMDS");
+  let instance_id = instance_id_result.as_ref();
   println!("Instance ID: {}", instance_id);
 
   let credentials_provider = aws_config::imds::credentials::ImdsCredentialsProvider::builder()
     .imds_client(imds_client.clone())
     .build();
 
-  let shared_config = aws_config::from_env()
+  let shared_config = aws_config::defaults(aws_config::BehaviorVersion::v2023_11_09())
     .credentials_provider(credentials_provider)
     .region(region)
     .load()
@@ -125,9 +123,7 @@ async fn main() -> Result<(), std::io::Error> {
       .send()
       .await
       .expect("Error: could not describe addresses");
-    let addresses = describe_addresses
-      .addresses()
-      .expect("Error: could not unwrap addresses");
+    let addresses = describe_addresses.addresses();
     if addresses.is_empty() {
       panic!("Error: no addresses were found!");
     }

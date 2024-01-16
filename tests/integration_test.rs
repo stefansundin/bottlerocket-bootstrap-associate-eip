@@ -1,14 +1,20 @@
 mod tests {
   use std::collections::HashMap;
-  use std::convert::Infallible;
   use std::env;
   use std::fs;
   use std::io::{BufRead, BufReader};
+  use std::net::SocketAddr;
   use std::process::{Command, Stdio};
   use std::thread;
 
-  use hyper::service::{make_service_fn, service_fn};
-  use hyper::{Body, Request, Response, Server};
+  use http::Method;
+  use http_body_util::{BodyExt, Full};
+  use hyper::body::{Bytes, Incoming};
+  use hyper::server::conn::http1;
+  use hyper::service::service_fn;
+  use hyper::{Request, Response};
+  use hyper_util::rt::TokioIo;
+  use tokio::net::TcpListener;
 
   const ALLOCATION_ID: &str = "eipalloc-01234567890abcdef";
   const ALLOW_REASSOCIATION: bool = true;
@@ -36,27 +42,30 @@ mod tests {
   const INSTANCE_ID: &str = "i-01234567890abcdef";
   const REGION: &str = "us-west-2";
 
-  async fn handle(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    // eprintln!("handler: {:?}", req.uri());
+  async fn handle(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, http::Error> {
     // eprintln!("handler: {:?}", req);
-    if req.uri() == "/latest/api/token" {
-      return Ok(
-        Response::builder()
+    // eprintln!("handler: {} {}", req.method(), req.uri());
+
+    match (req.method(), req.uri().path()) {
+      (&Method::PUT, "/latest/api/token") => {
+        return Response::builder()
           .header("x-aws-ec2-metadata-token-ttl-seconds", "21600")
-          .body(Body::from("fakeimdstoken"))
-          .expect("response builder"),
-      );
-    } else if req.uri() == "/latest/meta-data/placement/region" {
-      return Ok(Response::new(Body::from(REGION)));
-    } else if req.uri() == "/latest/meta-data/instance-id" {
-      return Ok(Response::new(Body::from(INSTANCE_ID)));
-    } else if req.uri() == "/latest/meta-data/iam/security-credentials/" {
-      return Ok(Response::new(Body::from("iamRole")));
-    } else if req.uri() == "/latest/meta-data/iam/security-credentials/iamRole" {
-      let now = chrono::Utc::now();
-      let expiration = now + chrono::Duration::hours(6);
-      return Ok(Response::new(Body::from(format!(
-        r#"{{
+          .body(Full::new(Bytes::from("fakeimdstoken")))
+      }
+      (&Method::GET, "/latest/meta-data/placement/region") => {
+        return Ok(Response::new(Full::new(Bytes::from(REGION))))
+      }
+      (&Method::GET, "/latest/meta-data/instance-id") => {
+        return Ok(Response::new(Full::new(Bytes::from(INSTANCE_ID))))
+      }
+      (&Method::GET, "/latest/meta-data/iam/security-credentials/") => {
+        return Ok(Response::new(Full::new(Bytes::from("iamRole"))))
+      }
+      (&Method::GET, "/latest/meta-data/iam/security-credentials/iamRole") => {
+        let now = chrono::Utc::now();
+        let expiration = now + chrono::Duration::hours(6);
+        return Ok(Response::new(Full::new(Bytes::from(format!(
+          r#"{{
   "Code" : "Success",
   "LastUpdated" : "{}",
   "Type" : "AWS-HMAC",
@@ -65,38 +74,38 @@ mod tests {
   "Token" : "EXAMPLETOKEN",
   "Expiration" : "{}"
 }}"#,
-        now.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-        expiration.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-      ))));
-    } else if req.method() == "POST" {
-      // eprintln!("body: {:?}", req.body());
+          now.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+          expiration.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+        )))));
+      }
+      (&Method::POST, "/") => {
+        let body = String::from_utf8(
+          req
+            .collect()
+            .await
+            .expect("error collecting request body")
+            .to_bytes()
+            .to_vec(),
+        )
+        .expect("could not decode request body");
+        let params = serde_urlencoded::from_str::<Vec<(String, String)>>(body.as_str())
+          .expect("could not parse request body")
+          .into_iter()
+          .collect::<HashMap<_, _>>();
+        eprintln!("params: {:?}", params);
 
-      let body = String::from_utf8(
-        hyper::body::to_bytes(req.into_body())
-          .await
-          .expect("could not read request body")
-          .to_vec(),
-      )
-      .expect("could not convert request body to string");
-      // eprintln!("body: {:?}", body);
-
-      let params = serde_urlencoded::from_str::<Vec<(String, String)>>(body.as_str())
-        .expect("could not parse request body")
-        .into_iter()
-        .collect::<HashMap<_, _>>();
-      // eprintln!("params: {:?}", params);
-
-      if params["Action"] == "DescribeAddresses" {
-        let response = const_str::concat!(
-          r#"<?xml version="1.0" encoding="UTF-8"?>
+        match params["Action"].as_str() {
+          "DescribeAddresses" => {
+            let response = const_str::concat!(
+              r#"<?xml version="1.0" encoding="UTF-8"?>
 <DescribeAddressesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
     <requestId>626a6a86-7f79-42c0-ae94-a345e967db2b</requestId>
     <addressesSet>
         <item>
             <publicIp>1.1.1.1</publicIp>
             <allocationId>"#,
-          ALLOCATION_ID,
-          r#"</allocationId>
+              ALLOCATION_ID,
+              r#"</allocationId>
             <domain>vpc</domain>
             <tagSet>
                 <item>
@@ -106,8 +115,8 @@ mod tests {
             </tagSet>
             <publicIpv4Pool>amazon</publicIpv4Pool>
             <networkBorderGroup>"#,
-          REGION,
-          r#"</networkBorderGroup>
+              REGION,
+              r#"</networkBorderGroup>
         </item>
         <item>
             <publicIp>1.1.1.2</publicIp>
@@ -126,70 +135,84 @@ mod tests {
             </tagSet>
             <publicIpv4Pool>amazon</publicIpv4Pool>
             <networkBorderGroup>"#,
-          REGION,
-          r#"</networkBorderGroup>
+              REGION,
+              r#"</networkBorderGroup>
         </item>
     </addressesSet>
 </DescribeAddressesResponse>
 "#
-        );
-        // eprintln!("response: {:?}", response);
-        return Ok(Response::new(Body::from(response)));
-      } else if params["Action"] == "AssociateAddress" {
-        if params["AllocationId"] != ALLOCATION_ID
-          || params["InstanceId"] != INSTANCE_ID
-          || params["AllowReassociation"] != ALLOW_REASSOCIATION.to_string()
-        {
-          eprintln!("Unexpected params: {:?}", params);
-          return Ok(
-            Response::builder()
-              .status(422)
-              .body(Body::from(""))
-              .expect("response builder"),
-          );
-        }
+            );
+            // eprintln!("response: {:?}", response);
+            return Ok(Response::new(Full::new(Bytes::from(response))));
+          }
+          "AssociateAddress" => {
+            if params["AllocationId"] != ALLOCATION_ID
+              || params["InstanceId"] != INSTANCE_ID
+              || params["AllowReassociation"] != ALLOW_REASSOCIATION.to_string()
+            {
+              eprintln!("Unexpected params: {:?}", params);
+              return Response::builder()
+                .status(422)
+                .body(Full::new(Bytes::from("")));
+            }
 
-        // TODO: assert that this response was given in the test's lifetime
-        let response = r#"<?xml version="1.0" encoding="UTF-8"?>
+            // TODO: assert that this response was given in the test's lifetime
+            let response = r#"<?xml version="1.0" encoding="UTF-8"?>
 <AssociateAddressResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
     <requestId>626a6a86-7f79-42c0-ae94-a345e967db2b</requestId>
     <return>true</return>
     <associationId>eipassoc-01234567890abcdef</associationId>
 </AssociateAddressResponse>
 "#;
-        // eprintln!("response: {:?}", response);
-        return Ok(Response::new(Body::from(response)));
-      } else {
-        eprintln!("Unknown Action: {:?}", params["Action"]);
-        return Ok(
-          Response::builder()
-            .status(422)
-            .body(Body::from(""))
-            .expect("response builder"),
-        );
+            // eprintln!("response: {:?}", response);
+            return Ok(Response::new(Full::new(Bytes::from(response))));
+          }
+          _ => {
+            eprintln!("Unknown Action: {:?}", params["Action"]);
+            return Response::builder()
+              .status(422)
+              .body(Full::new(Bytes::from("")));
+          }
+        }
       }
-    } else {
-      println!("unexpected request: {:?}", req);
-      panic!("unexpected request");
+      _ => {
+        println!("unexpected request: {:?}", req);
+        panic!("unexpected request");
+      }
     }
   }
 
   #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-  async fn test_main() {
+  async fn test_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Prepare a webserver on a random port
     // This webserver receives both IMDS and EC2 service requests
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 0));
-    let make_service =
-      make_service_fn(|_conn| async { Ok::<_, std::convert::Infallible>(service_fn(handle)) });
-    let server = Server::bind(&addr).serve(make_service);
-    let aws_ec2_metadata_service_endpoint = format!("http://{}", server.local_addr());
+    let addr = SocketAddr::from(([127, 0, 0, 1], 0));
+    let server = TcpListener::bind(addr).await?;
 
-    // Start the webserver with a signal that can be used to stop it
-    let (webserver_shutdown_tx, webserver_shutdown_rx) = futures::channel::oneshot::channel::<()>();
-    let graceful = server.with_graceful_shutdown(async {
-      webserver_shutdown_rx.await.ok();
+    let aws_ec2_metadata_service_endpoint = format!(
+      "http://{}",
+      server.local_addr().expect("could not get listen address")
+    );
+    eprintln!(
+      "AWS_EC2_METADATA_SERVICE_ENDPOINT: {}",
+      aws_ec2_metadata_service_endpoint
+    );
+
+    let webserver_task = tokio::spawn(async move {
+      loop {
+        let (stream, _) = server.accept().await.expect("error accepting connection");
+        let io = TokioIo::new(stream);
+
+        tokio::task::spawn(async move {
+          if let Err(err) = http1::Builder::new()
+            .serve_connection(io, service_fn(handle))
+            .await
+          {
+            eprintln!("Error serving connection: {:?}", err);
+          }
+        });
+      }
     });
-    tokio::task::spawn(graceful);
 
     // Prepare the user-data file
     let user_data_file =
@@ -258,7 +281,7 @@ mod tests {
     let _stderr = stderr_rx.into_iter().collect::<Vec<String>>();
 
     // Stop the webserver
-    let _ = webserver_shutdown_tx.send(());
+    webserver_task.abort();
 
     // eprintln!("status: {:?}", status);
     // eprintln!("stdout: {:?}", stdout);
@@ -295,6 +318,6 @@ mod tests {
       ]
     );
 
-    ()
+    Ok(())
   }
 }
