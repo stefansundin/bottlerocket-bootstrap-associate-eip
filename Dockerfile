@@ -1,4 +1,4 @@
-FROM rust:1-bullseye AS builder
+FROM rust:1-bookworm AS builder
 
 ARG TARGETARCH
 

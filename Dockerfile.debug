@@ -1,7 +1,7 @@
 # This image has more logging enabled and the binary is not stripped.
 # https://docs.aws.amazon.com/sdk-for-rust/latest/dg/logging.html
 
-FROM rust:1-bullseye AS builder
+FROM rust:1-bookworm AS builder
 
 ARG TARGETARCH
 
