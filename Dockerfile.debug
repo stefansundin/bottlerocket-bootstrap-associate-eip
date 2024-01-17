@@ -4,6 +4,7 @@
 FROM rust:1-bookworm AS builder
 
 ARG TARGETARCH
+ARG CARGO_BUILD_JOBS
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CC=musl-gcc
