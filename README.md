@@ -34,7 +34,8 @@ If you want to dynamically find an EIP to use, e.g. based on tags, then you can 
 echo '{"Filters":[{"Name":"tag:Pool","Values":["ecs"]}]}' | base64
 ```
 
-**⚠️ When `Filters` is used, the program will try to pick an unallocated EIP at random. If all the EIPs are in use then one will be chosen at random anyway. Set `AllowReassociation` to `false` to exit with an error instead. ⚠️**
+> [!WARNING]
+> When `Filters` is used, the program will try to pick an unallocated EIP at random. If all the EIPs are in use then one will be chosen at random anyway. Set `AllowReassociation` to `false` to exit with an error instead.
 
 You can specify an empty array to have the program pick any EIP in the account:
 
