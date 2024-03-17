@@ -63,7 +63,7 @@ mod tests {
       }
       (&Method::GET, "/latest/meta-data/iam/security-credentials/iamRole") => {
         let now = chrono::Utc::now();
-        let expiration = now + chrono::Duration::hours(6);
+        let expiration = now + chrono::Duration::try_hours(6).unwrap();
         return Ok(Response::new(Full::new(Bytes::from(format!(
           r#"{{
   "Code" : "Success",
