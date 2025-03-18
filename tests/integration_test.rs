@@ -50,16 +50,16 @@ mod tests {
       (&Method::PUT, "/latest/api/token") => {
         return Response::builder()
           .header("x-aws-ec2-metadata-token-ttl-seconds", "21600")
-          .body(Full::new(Bytes::from("fakeimdstoken")))
+          .body(Full::new(Bytes::from("fakeimdstoken")));
       }
       (&Method::GET, "/latest/meta-data/placement/region") => {
-        return Ok(Response::new(Full::new(Bytes::from(REGION))))
+        return Ok(Response::new(Full::new(Bytes::from(REGION))));
       }
       (&Method::GET, "/latest/meta-data/instance-id") => {
-        return Ok(Response::new(Full::new(Bytes::from(INSTANCE_ID))))
+        return Ok(Response::new(Full::new(Bytes::from(INSTANCE_ID))));
       }
       (&Method::GET, "/latest/meta-data/iam/security-credentials/") => {
-        return Ok(Response::new(Full::new(Bytes::from("iamRole"))))
+        return Ok(Response::new(Full::new(Bytes::from("iamRole"))));
       }
       (&Method::GET, "/latest/meta-data/iam/security-credentials/iamRole") => {
         let now = chrono::Utc::now();
