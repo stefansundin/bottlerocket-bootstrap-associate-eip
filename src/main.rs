@@ -1,4 +1,4 @@
-// Copyright 2023 Stefan Sundin
+// Copyright 2025 Stefan Sundin
 // Licensed under the Apache License 2.0
 
 use rand::Rng;
@@ -66,15 +66,12 @@ async fn main() -> Result<(), std::io::Error> {
     .imds_client(imds_client.clone())
     .build();
   let region = region_provider.region().await;
-  if region == None {
+  if region.is_none() {
     panic!("Error: could not get region from IMDS.");
   }
   println!(
     "Region: {}",
-    region
-      .as_ref()
-      .expect("error unwrapping region")
-      .to_string()
+    region.as_ref().expect("error unwrapping region")
   );
 
   let instance_id_result = imds_client
@@ -88,7 +85,7 @@ async fn main() -> Result<(), std::io::Error> {
     .imds_client(imds_client.clone())
     .build();
 
-  let shared_config = aws_config::defaults(aws_config::BehaviorVersion::v2023_11_09())
+  let shared_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
     .credentials_provider(credentials_provider)
     .region(region)
     .load()
@@ -151,8 +148,8 @@ async fn main() -> Result<(), std::io::Error> {
       println!("Only {} left.", allocation_id);
     } else {
       // Pick one at random
-      let mut rng = rand::thread_rng();
-      let i = rng.gen_range(0..available_addresses.len());
+      let mut rng = rand::rng();
+      let i = rng.random_range(0..available_addresses.len());
       allocation_id = available_addresses[i].allocation_id().unwrap().to_owned();
       println!(
         "Picked {} at random from {} addresses.",
