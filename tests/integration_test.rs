@@ -10,8 +10,8 @@ mod tests {
   use std::process::{Command, Stdio};
   use std::thread;
 
-  use http::Method;
   use http_body_util::{BodyExt, Full};
+  use hyper::Method;
   use hyper::body::{Bytes, Incoming};
   use hyper::server::conn::http1;
   use hyper::service::Service;
