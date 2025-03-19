@@ -2,7 +2,7 @@ This is a bootstrap container for Bottlerocket that associates an elastic IP add
 
 Because Bottlerocket doesn't allow for traditional startup scripts in the user data, you can't just run aws-cli commands like you may be used to. Bottlerocket provides a way to run bootstrap containers instead, which you can use to configure the system when it starts up.
 
-A Rust program compiled using musl was picked to minimize the size of the docker image (the docker image is about 3 MB compressed). It is published on Amazon Public ECR: https://gallery.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip
+A Rust program compiled using musl was picked to minimize the size of the docker image (the docker image is about 4 MB compressed). It is published on Amazon Public ECR: https://gallery.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip
 
 Here's how to configure it in your Bottlerocket user data:
 
@@ -51,7 +51,7 @@ Reference:
 
 ## Supported Bottlerocket versions
 
-Tested on Bottlerocket v1.9.2 and v1.10.0.
+Tested on Bottlerocket v1.9.2, v1.10.0, v1.26.2, and v1.34.0.
 
 
 ## IAM Permissions
@@ -83,7 +83,7 @@ You can get the output from the docker container by running:
 
 ```shell
 enter-admin-container
-sheltie
+sudo sheltie
 journalctl -u bootstrap-containers@associate-eip.service
 ```
 
@@ -108,6 +108,6 @@ cargo test -- --nocapture --test-threads=1
 
 ## Feedback
 
-This is one of my first Rust programs. If you have ideas for improvements, please open an issue or a pull request.
+If you have ideas for improvements, please open an issue or a pull request.
 
 If you have questions then please open an issue or a discussion.
