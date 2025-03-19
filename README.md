@@ -102,7 +102,7 @@ There is an integration test that simulates the required environment.
 
 ```
 export RUST_LOG=aws
-cargo test -- --nocapture
+cargo test -- --nocapture --test-threads=1
 ```
 
 
