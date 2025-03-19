@@ -85,7 +85,7 @@ mod tests {
               .expect("could not parse request body")
               .into_iter()
               .collect::<HashMap<_, _>>();
-            // eprintln!("params: {:?}", params);
+            // eprintln!("params: {params:?}");
 
             match params["Action"].as_str() {
               "DescribeAddresses" => {
@@ -160,7 +160,7 @@ mod tests {
                     )
                   }
                 } else {
-                  eprintln!("Unexpected params: {:?}", params);
+                  eprintln!("Unexpected params: {params:?}");
                   Ok(
                     Response::builder()
                       .status(422)
@@ -181,7 +181,7 @@ mod tests {
             }
           }
           _ => {
-            println!("unexpected request: {:?}", req);
+            println!("unexpected request: {req:?}");
             panic!("unexpected request");
           }
         }
@@ -205,7 +205,7 @@ mod tests {
 
         tokio::task::spawn(async move {
           if let Err(err) = http1::Builder::new().serve_connection(io, service).await {
-            eprintln!("Error serving connection: {:?}", err);
+            eprintln!("Error serving connection: {err:?}");
           }
         });
       }
@@ -227,7 +227,7 @@ mod tests {
     fs::write(&user_data_path, user_data).expect("could not write container user-data");
 
     // Prepare the environment variables
-    let aws_ec2_metadata_service_endpoint = format!("http://{}", addr);
+    let aws_ec2_metadata_service_endpoint = format!("http://{addr}");
     // eprintln!("AWS_EC2_METADATA_SERVICE_ENDPOINT: {aws_ec2_metadata_service_endpoint}");
     let env: HashMap<&str, &str> = HashMap::from([
       (
@@ -263,7 +263,7 @@ mod tests {
       let stdout_lines = BufReader::new(child_stdout).lines();
       for line in stdout_lines {
         let line = line.expect("error reading stdout");
-        println!("{}", line);
+        println!("{line}");
         stdout_tx.send(line).expect("error capturing stdout");
       }
     });
@@ -272,7 +272,7 @@ mod tests {
       let stderr_lines = BufReader::new(child_stderr).lines();
       for line in stderr_lines {
         let line = line.expect("error reading stderr");
-        eprintln!("{}", line);
+        eprintln!("{line}");
         stderr_tx.send(line).expect("error capturing stderr");
       }
     });
@@ -285,9 +285,9 @@ mod tests {
     let stdout = stdout_rx.into_iter().collect::<Vec<String>>();
     let stderr = stderr_rx.into_iter().collect::<Vec<String>>();
 
-    // eprintln!("status: {:?}", status);
-    // eprintln!("stdout: {:?}", stdout);
-    // eprintln!("stderr: {:?}", _stderr);
+    // eprintln!("status: {status:?}");
+    // eprintln!("stdout: {stdout:?}");
+    // eprintln!("stderr: {stderr:?}");
 
     return Ok((status, stdout.join("\n"), stderr.join("\n")));
   }

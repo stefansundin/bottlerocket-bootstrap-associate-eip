@@ -47,16 +47,13 @@ async fn main() -> Result<(), std::io::Error> {
 
   if let Some(allocation_id) = input.allocation_id.as_ref() {
     if !allocation_id.starts_with("eipalloc-") {
-      panic!(
-        "Error: invalid input (expected \"eipalloc-\"): {:?}",
-        allocation_id
-      );
+      panic!(r#"Error: invalid input (expected "eipalloc-"): {allocation_id:?}"#);
     }
-    println!("Allocation ID: {}", allocation_id);
+    println!("Allocation ID: {allocation_id}");
   }
 
   let allow_reassociation = input.allow_reassociation.unwrap_or(true);
-  println!("Allow Reassociation: {}", allow_reassociation);
+  println!("Allow Reassociation: {allow_reassociation}");
 
   // Initialize IMDS client
   let imds_client = aws_config::imds::client::Client::builder().build();
@@ -79,7 +76,7 @@ async fn main() -> Result<(), std::io::Error> {
     .await
     .expect("could not get the instance ID from IMDS");
   let instance_id = instance_id_result.as_ref();
-  println!("Instance ID: {}", instance_id);
+  println!("Instance ID: {instance_id}");
 
   let credentials_provider = aws_config::imds::credentials::ImdsCredentialsProvider::builder()
     .imds_client(imds_client.clone())
@@ -111,7 +108,7 @@ async fn main() -> Result<(), std::io::Error> {
           .build()
       })
       .collect();
-    println!("Filters: {:?}", filters_input);
+    println!("Filters: {filters_input:?}");
 
     // Describe the addresses
     let describe_addresses = ec2_client
@@ -145,15 +142,14 @@ async fn main() -> Result<(), std::io::Error> {
         .allocation_id()
         .unwrap()
         .to_owned();
-      println!("Only {} left.", allocation_id);
+      println!("Only {allocation_id} left.");
     } else {
       // Pick one at random
       let mut rng = rand::rng();
       let i = rng.random_range(0..available_addresses.len());
       allocation_id = available_addresses[i].allocation_id().unwrap().to_owned();
       println!(
-        "Picked {} at random from {} addresses.",
-        allocation_id,
+        "Picked {allocation_id} at random from {} addresses.",
         available_addresses.len()
       );
     }
@@ -172,7 +168,7 @@ async fn main() -> Result<(), std::io::Error> {
     .expect("could not associate EIP");
 
   println!("Success!");
-  println!("{:?}", response);
+  println!("{response:?}");
 
   return Ok(());
 }
