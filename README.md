@@ -51,7 +51,7 @@ Reference:
 
 ## Supported Bottlerocket versions
 
-Tested on Bottlerocket v1.9.2, v1.10.0, v1.26.2, and v1.34.0.
+Tested on Bottlerocket v1.9.2, v1.10.0, v1.26.2, v1.34.0, and v1.44.0.
 
 
 ## IAM Permissions
