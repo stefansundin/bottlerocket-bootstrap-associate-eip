@@ -36,4 +36,7 @@ COPY --from=builder /src/target/bottlerocket-bootstrap-associate-eip /bottlerock
 # Use the CA bundle from the Bottlerocket file system
 ENV SSL_CERT_FILE=/.bottlerocket/rootfs/etc/pki/tls/certs/ca-bundle.crt
 
+# Use dualstack endpoints
+ENV AWS_USE_DUALSTACK_ENDPOINT=true
+
 ENTRYPOINT [ "/bottlerocket-bootstrap-associate-eip" ]
