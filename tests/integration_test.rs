@@ -25,19 +25,21 @@ mod tests {
     allocation_id: &'static str,
     allow_reassociation: bool,
     instance_id: &'static str,
+    mac_address: &'static str,
+    interface_id: &'static str,
     region: &'static str,
   }
 
   impl Service<Request<Incoming>> for IntegrationWebService {
     type Response = Response<Full<Bytes>>;
     type Error = Infallible;
-    type Future =
-      Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+    type Future = Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn call(&self, req: Request<Incoming>) -> Self::Future {
       let service = self.clone();
 
       Box::pin(async move {
+        let interface_id_path = format!("/latest/meta-data/network/interfaces/macs/{}/interface-id", service.mac_address);
         match (req.method(), req.uri().path()) {
           (&Method::PUT, "/latest/api/token") => Ok(
             Response::builder()
@@ -45,15 +47,11 @@ mod tests {
               .body(Full::new(Bytes::from("fakeimdstoken")))
               .unwrap(),
           ),
-          (&Method::GET, "/latest/meta-data/placement/region") => {
-            Ok(Response::new(Full::new(Bytes::from(service.region))))
-          }
-          (&Method::GET, "/latest/meta-data/instance-id") => {
-            Ok(Response::new(Full::new(Bytes::from(service.instance_id))))
-          }
-          (&Method::GET, "/latest/meta-data/iam/security-credentials/") => {
-            Ok(Response::new(Full::new(Bytes::from("iamRole"))))
-          }
+          (&Method::GET, "/latest/meta-data/placement/region") => Ok(Response::new(Full::new(Bytes::from(service.region)))),
+          (&Method::GET, "/latest/meta-data/instance-id") => Ok(Response::new(Full::new(Bytes::from(service.instance_id)))),
+          (&Method::GET, "/latest/meta-data/mac") => Ok(Response::new(Full::new(Bytes::from(service.mac_address)))),
+          (&Method::GET, path) if path == interface_id_path => Ok(Response::new(Full::new(Bytes::from(service.interface_id)))),
+          (&Method::GET, "/latest/meta-data/iam/security-credentials/") => Ok(Response::new(Full::new(Bytes::from("iamRole")))),
           (&Method::GET, "/latest/meta-data/iam/security-credentials/iamRole") => {
             let now = chrono::Utc::now();
             let expiration = now + chrono::Duration::try_hours(6).unwrap();
@@ -72,15 +70,7 @@ mod tests {
             )))))
           }
           (&Method::POST, "/") => {
-            let body = String::from_utf8(
-              req
-                .collect()
-                .await
-                .expect("error collecting request body")
-                .to_bytes()
-                .to_vec(),
-            )
-            .expect("could not decode request body");
+            let body = String::from_utf8(req.collect().await.expect("error collecting request body").to_bytes().to_vec()).expect("could not decode request body");
             let params = serde_urlencoded::from_str::<Vec<(String, String)>>(body.as_str())
               .expect("could not parse request body")
               .into_iter()
@@ -134,9 +124,7 @@ mod tests {
               }
               "AssociateAddress" => {
                 // TODO: assert that this response was given in the test's lifetime?
-                if params["AllocationId"] == service.allocation_id
-                  && params["InstanceId"] == service.instance_id
-                {
+                if params["AllocationId"] == service.allocation_id && params["InstanceId"] == service.instance_id {
                   if params["AllowReassociation"] == "true" {
                     let response = r#"<?xml version="1.0" encoding="UTF-8"?>
 <AssociateAddressResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
@@ -152,31 +140,34 @@ mod tests {
 <Response><Errors><Error><Code>Resource.AlreadyAssociated</Code><Message>resource {} is already associated with associate-id eipassoc-01234567890abcdef</Message></Error></Errors><RequestID>626a6a86-7f79-42c0-ae94-a345e967db2b</RequestID></Response>"#,
                       params["AllocationId"]
                     );
-                    Ok(
-                      Response::builder()
-                        .status(400)
-                        .body(Full::new(Bytes::from(response)))
-                        .unwrap(),
-                    )
+                    Ok(Response::builder().status(400).body(Full::new(Bytes::from(response))).unwrap())
                   }
                 } else {
                   eprintln!("Unexpected params: {params:?}");
-                  Ok(
-                    Response::builder()
-                      .status(422)
-                      .body(Full::new(Bytes::from("")))
-                      .unwrap(),
-                  )
+                  Ok(Response::builder().status(422).body(Full::new(Bytes::from(""))).unwrap())
+                }
+              }
+              "AssignIpv6Addresses" => {
+                if params["NetworkInterfaceId"] == service.interface_id && params.contains_key("Ipv6Addresses.1") {
+                  let response = format!(
+                    r#"<?xml version="1.0" encoding="UTF-8"?>
+<AssignIpv6AddressesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+    <requestId>8ec480ba-ee06-4bff-9398-f8411c485942</requestId>
+    <networkInterfaceId>{}</networkInterfaceId>
+    <assignedIpv6Addresses><item>{}</item></assignedIpv6Addresses>
+</AssignIpv6AddressesResponse>
+"#,
+                    params["NetworkInterfaceId"], params["Ipv6Addresses.1"],
+                  );
+                  Ok(Response::new(Full::new(Bytes::from(response))))
+                } else {
+                  eprintln!("Unexpected params: {params:?}");
+                  Ok(Response::builder().status(422).body(Full::new(Bytes::from(""))).unwrap())
                 }
               }
               _ => {
                 eprintln!("Unknown Action: {:?}", params["Action"]);
-                Ok(
-                  Response::builder()
-                    .status(422)
-                    .body(Full::new(Bytes::from("")))
-                    .unwrap(),
-                )
+                Ok(Response::builder().status(422).body(Full::new(Bytes::from(""))).unwrap())
               }
             }
           }
@@ -191,9 +182,7 @@ mod tests {
 
   /// Starts a webserver on a random port.
   /// This webserver receives both IMDS and EC2 service requests.
-  async fn start_webserver(
-    service: &'static IntegrationWebService,
-  ) -> Result<(SocketAddr, JoinHandle<()>), Box<dyn std::error::Error + Send + Sync>> {
+  async fn start_webserver(service: &'static IntegrationWebService) -> Result<(SocketAddr, JoinHandle<()>), Box<dyn std::error::Error + Send + Sync>> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 0));
     let server = TcpListener::bind(addr).await?;
     let addr = server.local_addr()?;
@@ -216,13 +205,9 @@ mod tests {
 
   /// Runs the program against a custom webserver and returns the exit code, stdout, and stderr.
   /// Panics if the program exits with a non-zero exit code.
-  async fn run_program(
-    user_data: &str,
-    addr: SocketAddr,
-  ) -> Result<(ExitStatus, String, String), Box<dyn std::error::Error + Send + Sync>> {
+  async fn run_program(user_data: &str, addr: SocketAddr) -> Result<(ExitStatus, String, String), Box<dyn std::error::Error + Send + Sync>> {
     // Prepare the user-data file
-    let user_data_file =
-      tempfile::NamedTempFile::new().expect("could not create user-data temporary file");
+    let user_data_file = tempfile::NamedTempFile::new().expect("could not create user-data temporary file");
     let user_data_path = user_data_file.into_temp_path();
     fs::write(&user_data_path, user_data).expect("could not write container user-data");
 
@@ -230,14 +215,8 @@ mod tests {
     let aws_ec2_metadata_service_endpoint = format!("http://{addr}");
     // eprintln!("AWS_EC2_METADATA_SERVICE_ENDPOINT: {aws_ec2_metadata_service_endpoint}");
     let env: HashMap<&str, &str> = HashMap::from([
-      (
-        "USER_DATA_PATH",
-        user_data_path.to_str().expect("user_data_path error"),
-      ),
-      (
-        "AWS_EC2_METADATA_SERVICE_ENDPOINT",
-        &aws_ec2_metadata_service_endpoint,
-      ),
+      ("USER_DATA_PATH", user_data_path.to_str().expect("user_data_path error")),
+      ("AWS_EC2_METADATA_SERVICE_ENDPOINT", &aws_ec2_metadata_service_endpoint),
       ("AWS_EC2_ENDPOINT", &aws_ec2_metadata_service_endpoint),
       // ("RUST_BACKTRACE", "1"),
       // ("RUST_LOG", "aws"),
@@ -300,6 +279,8 @@ mod tests {
       allocation_id: "eipalloc-01234567890abcdef",
       allow_reassociation: true,
       instance_id: "i-01234567890abcdef",
+      mac_address: "02:b2:0b:a9:64:5b",
+      interface_id: "eni-01234567a8e25de7c",
       region: "us-west-2",
     };
 
@@ -318,8 +299,9 @@ mod tests {
         const_str::concat!("Region: ", SERVICE.region),
         const_str::concat!("Instance ID: ", SERVICE.instance_id),
         "Success!",
-        "AssociateAddressOutput { association_id: Some(\"eipassoc-01234567890abcdef\"), _request_id: None }"
-      ].join("\n")
+        r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#
+      ]
+      .join("\n")
     );
 
     Ok(())
@@ -331,11 +313,12 @@ mod tests {
       allocation_id: "eipalloc-01234567890abcdef",
       allow_reassociation: true,
       instance_id: "i-01234567890abcdef",
+      mac_address: "02:b2:0b:a9:64:5b",
+      interface_id: "eni-01234567a8e25de7c",
       region: "us-west-2",
     };
 
-    const USER_DATA: &str =
-      const_str::concat!(r#"{"AllocationId":""#, SERVICE.allocation_id, r#""}"#);
+    const USER_DATA: &str = const_str::concat!(r#"{"AllocationId":""#, SERVICE.allocation_id, r#""}"#);
 
     let (addr, webserver_task) = start_webserver(SERVICE).await?;
     let (status, stdout, _) = run_program(USER_DATA, addr).await?;
@@ -350,30 +333,26 @@ mod tests {
         const_str::concat!("Region: ", SERVICE.region),
         const_str::concat!("Instance ID: ", SERVICE.instance_id),
         "Success!",
-        "AssociateAddressOutput { association_id: Some(\"eipassoc-01234567890abcdef\"), _request_id: None }"
-      ].join("\n")
+        r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#
+      ]
+      .join("\n")
     );
 
     Ok(())
   }
 
   #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-  async fn json_allow_reassociation_error() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
-  {
+  async fn json_allow_reassociation_error() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     const SERVICE: &'static IntegrationWebService = &IntegrationWebService {
       allocation_id: "eipalloc-01234567890abcdef",
       allow_reassociation: false,
       instance_id: "i-01234567890abcdef",
+      mac_address: "02:b2:0b:a9:64:5b",
+      interface_id: "eni-01234567a8e25de7c",
       region: "us-west-2",
     };
 
-    const USER_DATA: &str = const_str::concat!(
-      r#"{"AllocationId":""#,
-      SERVICE.allocation_id,
-      r#"","AllowReassociation":"#,
-      SERVICE.allow_reassociation,
-      r#"}"#,
-    );
+    const USER_DATA: &str = const_str::concat!(r#"{"AllocationId":""#, SERVICE.allocation_id, r#"","AllowReassociation":"#, SERVICE.allow_reassociation, r#"}"#,);
 
     let (addr, webserver_task) = start_webserver(SERVICE).await?;
     let (status, stdout, stderr) = run_program(USER_DATA, addr).await?;
@@ -405,14 +384,12 @@ mod tests {
       allocation_id: "eipalloc-01234567890abcdef",
       allow_reassociation: true,
       instance_id: "i-01234567890abcdef",
+      mac_address: "02:b2:0b:a9:64:5b",
+      interface_id: "eni-01234567a8e25de7c",
       region: "us-west-2",
     };
 
-    const USER_DATA: &str = const_str::concat!(
-      r#"{"Filters":[{"Name":"tag:Pool","Values":["ecs"]}],"AllowReassociation":"#,
-      SERVICE.allow_reassociation,
-      r#"}"#,
-    );
+    const USER_DATA: &str = const_str::concat!(r#"{"Filters":[{"Name":"tag:Pool","Values":["ecs"]}],"AllowReassociation":"#, SERVICE.allow_reassociation, r#"}"#,);
 
     let (addr, webserver_task) = start_webserver(SERVICE).await?;
     let (status, stdout, _) = run_program(USER_DATA, addr).await?;
@@ -430,7 +407,8 @@ mod tests {
         "Only eipalloc-01234567890abcdef left.",
         "Success!",
         r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#
-      ].join("\n")
+      ]
+      .join("\n")
     );
 
     Ok(())
@@ -442,14 +420,12 @@ mod tests {
       allocation_id: "eipalloc-01234567890abcdef",
       allow_reassociation: true,
       instance_id: "i-01234567890abcdef",
+      mac_address: "02:b2:0b:a9:64:5b",
+      interface_id: "eni-01234567a8e25de7c",
       region: "us-west-2",
     };
 
-    const USER_DATA: &str = const_str::concat!(
-      r#"{"Filters":[],"AllowReassociation":"#,
-      SERVICE.allow_reassociation,
-      r#"}"#,
-    );
+    const USER_DATA: &str = const_str::concat!(r#"{"Filters":[],"AllowReassociation":"#, SERVICE.allow_reassociation, r#"}"#,);
 
     let (addr, webserver_task) = start_webserver(SERVICE).await?;
     let (status, stdout, _) = run_program(USER_DATA, addr).await?;
@@ -467,8 +443,56 @@ mod tests {
         "Only eipalloc-01234567890abcdef left.",
         "Success!",
         r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#
-      ].join("\n")
+      ]
+      .join("\n")
     );
+
+    Ok(())
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+  async fn ipv6() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    const SERVICE: &'static IntegrationWebService = &IntegrationWebService {
+      allocation_id: "eipalloc-01234567890abcdef",
+      allow_reassociation: true,
+      instance_id: "i-01234567890abcdef",
+      mac_address: "02:b2:0b:a9:64:5b",
+      interface_id: "eni-01234567a8e25de7c",
+      region: "us-west-2",
+    };
+
+    const USER_DATA: &str = "fd12:3456:789a:1::a";
+
+    let (addr, webserver_task) = start_webserver(SERVICE).await?;
+    let (status, stdout, _) = run_program(USER_DATA, addr).await?;
+    webserver_task.abort();
+
+    assert!(status.success());
+    assert_eq!(
+      stdout,
+      [
+        const_str::concat!("Region: ", SERVICE.region),
+        const_str::concat!("MAC: ", SERVICE.mac_address),
+        const_str::concat!("Network Interface ID: ", SERVICE.interface_id),
+        "Success!",
+        r#"AssignIpv6AddressesOutput { assigned_ipv6_addresses: Some(["fd12:3456:789a:1::a"]), assigned_ipv6_prefixes: None, network_interface_id: Some("eni-01234567a8e25de7c"), _request_id: None }"#
+      ]
+      .join("\n")
+    );
+
+    Ok(())
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+  async fn invalid_input() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    const USER_DATA: &str = "asdf";
+
+    let addr = "127.0.0.1:8080".parse().unwrap(); // not actually used
+    let (status, stdout, stderr) = run_program(USER_DATA, addr).await?;
+
+    assert!(!status.success());
+    assert_eq!(stdout, "");
+    assert!(stderr.contains("thread 'main' panicked"));
 
     Ok(())
   }

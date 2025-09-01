@@ -20,9 +20,19 @@ The `user-data` contains the Elastic IP Allocation ID that you want to associate
 echo eipalloc-01234567890abcdef | base64
 ```
 
+### IPv6 address
+
+You can also automatically assign an IPv6 address, just specify the desired IPv6 address in the user data:
+
+```shell
+echo 2600:1f14:a11b:f301::a | base64
+```
+
+If you use this then you need to ensure that the EC2 instance is launched in the correct subnet.
+
 ### Additional options
 
-There are additional features besides the simple use-case demonstrated above. To use the additional options you need to pass in a JSON string in the `user-data` instead of just the `eipalloc` identifier.
+There are additional options available when associating an EIP, besides the simple use-case demonstrated above. To use the additional options you need to pass in a JSON string in the `user-data` instead of just the `eipalloc` identifier.
 
 ```shell
 echo '{"AllocationId":"eipalloc-01234567890abcdef","AllowReassociation":true}' | base64
@@ -66,6 +76,7 @@ Make sure your instance has permissions to associate elastic IP addresses.
             "Effect": "Allow",
             "Action": [
                 "ec2:AssociateAddress",
+                "ec2:AssignIpv6Addresses",
                 "ec2:DescribeAddresses"
             ],
             "Resource": "*"
@@ -100,7 +111,7 @@ source = "public.ecr.aws/stefansundin/bottlerocket-bootstrap-associate-eip:debug
 
 There is an integration test that simulates the required environment.
 
-```
+```shell
 export RUST_LOG=aws
 cargo test -- --nocapture --test-threads=1
 ```
