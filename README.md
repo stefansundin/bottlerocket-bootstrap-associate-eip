@@ -20,6 +20,14 @@ The `user-data` contains the Elastic IP Allocation ID that you want to associate
 echo eipalloc-01234567890abcdef | base64
 ```
 
+### Private IPv4 address
+
+You can also automatically assign a private IPv4 address, just specify the desired IPv4 address in the user data:
+
+```shell
+echo 10.3.0.10 | base64
+```
+
 ### IPv6 address
 
 You can also automatically assign an IPv6 address, just specify the desired IPv6 address in the user data:
@@ -76,6 +84,7 @@ Make sure your instance has permissions to associate elastic IP addresses.
             "Effect": "Allow",
             "Action": [
                 "ec2:AssociateAddress",
+                "ec2:AssignPrivateIpAddresses",
                 "ec2:AssignIpv6Addresses",
                 "ec2:DescribeAddresses"
             ],

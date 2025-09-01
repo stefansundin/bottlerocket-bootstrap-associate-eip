@@ -3,7 +3,7 @@
 
 use rand::Rng;
 use serde::Deserialize;
-use std::net::Ipv6Addr;
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -15,6 +15,7 @@ struct EipInput {
 
 enum Input {
   Eip(EipInput),
+  Ipv4(Ipv4Addr),
   Ipv6(Ipv6Addr),
 }
 
@@ -46,6 +47,8 @@ async fn main() -> Result<(), std::io::Error> {
       allow_reassociation: None,
       filters: None,
     })
+  } else if let Ok(ip) = userdata.parse::<Ipv4Addr>() {
+    Input::Ipv4(ip)
   } else if let Ok(ip) = userdata.parse::<Ipv6Addr>() {
     Input::Ipv6(ip)
   } else {
@@ -151,6 +154,29 @@ async fn main() -> Result<(), std::io::Error> {
         .send()
         .await
         .expect("could not associate EIP");
+
+      println!("Success!");
+      println!("{response:?}");
+    }
+    Input::Ipv4(ip) => {
+      let mac_result = imds_client.get("/latest/meta-data/mac").await.expect("could not get the interface MAC from IMDS");
+      let mac = mac_result.as_ref();
+      println!("MAC: {mac}");
+
+      let network_interface_id_result = imds_client
+        .get(format!("/latest/meta-data/network/interfaces/macs/{mac}/interface-id"))
+        .await
+        .expect("could not get the network interface ID from IMDS");
+      let network_interface_id = network_interface_id_result.as_ref();
+      println!("Network Interface ID: {network_interface_id}");
+
+      let response = ec2_client
+        .assign_private_ip_addresses()
+        .network_interface_id(network_interface_id)
+        .private_ip_addresses(ip.to_string())
+        .send()
+        .await
+        .expect("could not assign IPv4 address");
 
       println!("Success!");
       println!("{response:?}");

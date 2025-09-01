@@ -147,6 +147,26 @@ mod tests {
                   Ok(Response::builder().status(422).body(Full::new(Bytes::from(""))).unwrap())
                 }
               }
+              "AssignPrivateIpAddresses" => {
+                if params["NetworkInterfaceId"] == service.interface_id && params.contains_key("PrivateIpAddress.1") {
+                  let response = format!(
+                    r#"<?xml version="1.0" encoding="UTF-8"?>
+<AssignPrivateIpAddressesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/">
+    <requestId>5b003f44-72c9-4bb2-a977-eed2619141b4</requestId>
+    <networkInterfaceId>{}</networkInterfaceId>
+    <assignedPrivateIpAddressesSet><item><privateIpAddress>{}</privateIpAddress></item></assignedPrivateIpAddressesSet>
+    <assignedIpv4PrefixSet/>
+    <return>true</return>
+</AssignPrivateIpAddressesResponse>
+"#,
+                    params["NetworkInterfaceId"], params["PrivateIpAddress.1"],
+                  );
+                  Ok(Response::new(Full::new(Bytes::from(response))))
+                } else {
+                  eprintln!("Unexpected params: {params:?}");
+                  Ok(Response::builder().status(422).body(Full::new(Bytes::from(""))).unwrap())
+                }
+              }
               "AssignIpv6Addresses" => {
                 if params["NetworkInterfaceId"] == service.interface_id && params.contains_key("Ipv6Addresses.1") {
                   let response = format!(
@@ -443,6 +463,39 @@ mod tests {
         "Only eipalloc-01234567890abcdef left.",
         "Success!",
         r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#
+      ]
+      .join("\n")
+    );
+
+    Ok(())
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+  async fn ipv4() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    const SERVICE: &'static IntegrationWebService = &IntegrationWebService {
+      allocation_id: "eipalloc-01234567890abcdef",
+      allow_reassociation: true,
+      instance_id: "i-01234567890abcdef",
+      mac_address: "02:b2:0b:a9:64:5b",
+      interface_id: "eni-01234567a8e25de7c",
+      region: "us-west-2",
+    };
+
+    const USER_DATA: &str = "10.3.0.10";
+
+    let (addr, webserver_task) = start_webserver(SERVICE).await?;
+    let (status, stdout, _) = run_program(USER_DATA, addr).await?;
+    webserver_task.abort();
+
+    assert!(status.success());
+    assert_eq!(
+      stdout,
+      [
+        const_str::concat!("Region: ", SERVICE.region),
+        const_str::concat!("MAC: ", SERVICE.mac_address),
+        const_str::concat!("Network Interface ID: ", SERVICE.interface_id),
+        "Success!",
+        r#"AssignPrivateIpAddressesOutput { network_interface_id: Some("eni-01234567a8e25de7c"), assigned_private_ip_addresses: Some([AssignedPrivateIpAddress { private_ip_address: Some("10.3.0.10") }]), assigned_ipv4_prefixes: Some([]), _request_id: None }"#
       ]
       .join("\n")
     );
