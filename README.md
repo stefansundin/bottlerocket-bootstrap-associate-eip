@@ -66,6 +66,20 @@ Reference:
 - Either `AllocationId` or `Filters` is required.
 - `AllowReassociation` is `true` if omitted.
 
+### Multiple actions
+
+You can perform multiple actions as well, using either a comma-separated list mix of `eipalloc` identifiers, IPv4, and IPv6 addresses, or a JSON array.
+
+Examples:
+
+```shell
+# Comma-separated list:
+echo 'eipalloc-01234567890abcdef,10.3.0.10,2600:1f14:a11b:f301::a' | base64
+
+# JSON array:
+echo '[{"Filters":[{"Name":"tag:Pool","Values":["ecs"]}]},"10.3.0.10","2600:1f14:a11b:f301::a"]' | base64
+```
+
 
 ## Supported Bottlerocket versions
 
@@ -94,7 +108,7 @@ Make sure your instance has permissions to associate elastic IP addresses.
 }
 ```
 
-You only need `ec2:DescribeAddresses` if you want to use the `Filters` option.
+You can remove some of these actions depending on how you use the program.
 
 
 ## Troubleshooting

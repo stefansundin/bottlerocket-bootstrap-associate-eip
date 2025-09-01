@@ -314,10 +314,10 @@ mod tests {
     assert_eq!(
       stdout,
       [
-        const_str::concat!("Allocation ID: ", SERVICE.allocation_id),
-        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
         const_str::concat!("Region: ", SERVICE.region),
         const_str::concat!("Instance ID: ", SERVICE.instance_id),
+        const_str::concat!("Allocation ID: ", SERVICE.allocation_id),
+        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
         "Success!",
         r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#
       ]
@@ -348,10 +348,10 @@ mod tests {
     assert_eq!(
       stdout,
       [
-        const_str::concat!("Allocation ID: ", SERVICE.allocation_id),
-        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
         const_str::concat!("Region: ", SERVICE.region),
         const_str::concat!("Instance ID: ", SERVICE.instance_id),
+        const_str::concat!("Allocation ID: ", SERVICE.allocation_id),
+        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
         "Success!",
         r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#
       ]
@@ -384,10 +384,10 @@ mod tests {
     assert_eq!(
       stdout,
       [
-        const_str::concat!("Allocation ID: ", SERVICE.allocation_id),
-        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
         const_str::concat!("Region: ", SERVICE.region),
         const_str::concat!("Instance ID: ", SERVICE.instance_id),
+        const_str::concat!("Allocation ID: ", SERVICE.allocation_id),
+        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
       ]
       .join("\n")
     );
@@ -419,11 +419,11 @@ mod tests {
     assert_eq!(
       stdout,
       [
-        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
         const_str::concat!("Region: ", SERVICE.region),
         const_str::concat!("Instance ID: ", SERVICE.instance_id),
         r#"Filters: [Filter { name: Some("tag:Pool"), values: Some(["ecs"]) }]"#,
         "Found 2 addresses.",
+        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
         "Only eipalloc-01234567890abcdef left.",
         "Success!",
         r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#
@@ -455,11 +455,11 @@ mod tests {
     assert_eq!(
       stdout,
       [
-        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
         const_str::concat!("Region: ", SERVICE.region),
         const_str::concat!("Instance ID: ", SERVICE.instance_id),
         r#"Filters: []"#,
         "Found 2 addresses.",
+        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
         "Only eipalloc-01234567890abcdef left.",
         "Success!",
         r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#
@@ -527,6 +527,86 @@ mod tests {
         const_str::concat!("Region: ", SERVICE.region),
         const_str::concat!("MAC: ", SERVICE.mac_address),
         const_str::concat!("Network Interface ID: ", SERVICE.interface_id),
+        "Success!",
+        r#"AssignIpv6AddressesOutput { assigned_ipv6_addresses: Some(["fd12:3456:789a:1::a"]), assigned_ipv6_prefixes: None, network_interface_id: Some("eni-01234567a8e25de7c"), _request_id: None }"#
+      ]
+      .join("\n")
+    );
+
+    Ok(())
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+  async fn json_array() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    const SERVICE: &'static IntegrationWebService = &IntegrationWebService {
+      allocation_id: "eipalloc-01234567890abcdef",
+      allow_reassociation: true,
+      instance_id: "i-01234567890abcdef",
+      mac_address: "02:b2:0b:a9:64:5b",
+      interface_id: "eni-01234567a8e25de7c",
+      region: "us-west-2",
+    };
+
+    const USER_DATA: &str = const_str::concat!(r#"[{"AllocationId":""#, SERVICE.allocation_id, r#""},"10.3.0.10","fd12:3456:789a:1::a"]"#);
+
+    let (addr, webserver_task) = start_webserver(SERVICE).await?;
+    let (status, stdout, _) = run_program(USER_DATA, addr).await?;
+    webserver_task.abort();
+
+    assert!(status.success());
+    assert_eq!(
+      stdout,
+      [
+        const_str::concat!("Region: ", SERVICE.region),
+        const_str::concat!("Instance ID: ", SERVICE.instance_id),
+        const_str::concat!("Allocation ID: ", SERVICE.allocation_id),
+        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
+        "Success!",
+        r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#,
+        const_str::concat!("MAC: ", SERVICE.mac_address),
+        const_str::concat!("Network Interface ID: ", SERVICE.interface_id),
+        "Success!",
+        r#"AssignPrivateIpAddressesOutput { network_interface_id: Some("eni-01234567a8e25de7c"), assigned_private_ip_addresses: Some([AssignedPrivateIpAddress { private_ip_address: Some("10.3.0.10") }]), assigned_ipv4_prefixes: Some([]), _request_id: None }"#,
+        "Success!",
+        r#"AssignIpv6AddressesOutput { assigned_ipv6_addresses: Some(["fd12:3456:789a:1::a"]), assigned_ipv6_prefixes: None, network_interface_id: Some("eni-01234567a8e25de7c"), _request_id: None }"#
+      ]
+      .join("\n")
+    );
+
+    Ok(())
+  }
+
+  #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+  async fn list() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    const SERVICE: &'static IntegrationWebService = &IntegrationWebService {
+      allocation_id: "eipalloc-01234567890abcdef",
+      allow_reassociation: true,
+      instance_id: "i-01234567890abcdef",
+      mac_address: "02:b2:0b:a9:64:5b",
+      interface_id: "eni-01234567a8e25de7c",
+      region: "us-west-2",
+    };
+
+    const USER_DATA: &str = const_str::concat!("10.3.0.10,", SERVICE.allocation_id, ",fd12:3456:789a:1::a");
+
+    let (addr, webserver_task) = start_webserver(SERVICE).await?;
+    let (status, stdout, _) = run_program(USER_DATA, addr).await?;
+    webserver_task.abort();
+
+    assert!(status.success());
+    assert_eq!(
+      stdout,
+      [
+        const_str::concat!("Region: ", SERVICE.region),
+        const_str::concat!("MAC: ", SERVICE.mac_address),
+        const_str::concat!("Network Interface ID: ", SERVICE.interface_id),
+        "Success!",
+        r#"AssignPrivateIpAddressesOutput { network_interface_id: Some("eni-01234567a8e25de7c"), assigned_private_ip_addresses: Some([AssignedPrivateIpAddress { private_ip_address: Some("10.3.0.10") }]), assigned_ipv4_prefixes: Some([]), _request_id: None }"#,
+        const_str::concat!("Instance ID: ", SERVICE.instance_id),
+        const_str::concat!("Allocation ID: ", SERVICE.allocation_id),
+        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
+        "Success!",
+        r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#,
         "Success!",
         r#"AssignIpv6AddressesOutput { assigned_ipv6_addresses: Some(["fd12:3456:789a:1::a"]), assigned_ipv6_prefixes: None, network_interface_id: Some("eni-01234567a8e25de7c"), _request_id: None }"#
       ]
