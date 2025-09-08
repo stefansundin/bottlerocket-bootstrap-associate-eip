@@ -2,32 +2,10 @@
 // Licensed under the Apache License 2.0
 
 use rand::Rng;
-use serde::Deserialize;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use tokio::sync::OnceCell;
 
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum Action {
-  Eip(EipAction),
-  Ipv4(Ipv4Addr),
-  Ipv6(Ipv6Addr),
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct EipAction {
-  allocation_id: Option<String>,
-  allow_reassociation: Option<bool>,
-  filters: Option<Vec<Filter>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct Filter {
-  name: String,
-  values: Vec<String>,
-}
+pub mod types;
 
 async fn instance_id(imds_client: aws_config::imds::client::Client) -> &'static String {
   static INSTANCE_ID: OnceCell<String> = OnceCell::const_new();
@@ -67,7 +45,7 @@ async fn main() -> Result<(), std::io::Error> {
   // Read the container user-data
   let user_data_path = std::env::var("USER_DATA_PATH").unwrap_or("/.bottlerocket/bootstrap-containers/current/user-data".to_string());
   let userdata = std::fs::read_to_string(user_data_path).expect("could not read container user-data");
-  let actions: Vec<Action> = if userdata.starts_with("[") {
+  let actions: Vec<types::Action> = if userdata.starts_with("[") {
     serde_json::from_str(&userdata.to_owned()).expect("user-data JSON is not well-formatted")
   } else if userdata.starts_with("{") {
     vec![serde_json::from_str(&userdata.to_owned()).expect("user-data JSON is not well-formatted")]
@@ -75,16 +53,12 @@ async fn main() -> Result<(), std::io::Error> {
     userdata
       .split(",")
       .map(|a| {
-        if a.starts_with("eipalloc-") {
-          Action::Eip(EipAction {
-            allocation_id: Some(a.to_string()),
-            allow_reassociation: None,
-            filters: None,
-          })
+        if let Ok(eip) = a.parse::<types::EipAction>() {
+          types::Action::Eip(eip)
         } else if let Ok(ip) = a.parse::<Ipv4Addr>() {
-          Action::Ipv4(ip)
+          types::Action::Ipv4(ip)
         } else if let Ok(ip) = a.parse::<Ipv6Addr>() {
-          Action::Ipv6(ip)
+          types::Action::Ipv6(ip)
         } else {
           panic!("Error: Unable to parse input.");
         }
@@ -94,7 +68,7 @@ async fn main() -> Result<(), std::io::Error> {
 
   // Validate input
   for a in &actions {
-    if let Action::Eip(eip) = a {
+    if let types::Action::Eip(eip) = a {
       if eip.allocation_id.is_some() && eip.filters.is_some() {
         panic!("Error: can't use both AllocationId and Filters at the same time!")
       } else if eip.allocation_id.is_none() && eip.filters.is_none() {
@@ -134,7 +108,7 @@ async fn main() -> Result<(), std::io::Error> {
 
   for a in actions {
     match a {
-      Action::Eip(eip) => {
+      types::Action::Eip(eip) => {
         let instance_id = instance_id(imds_client.clone()).await;
         let allocation_id;
         let allow_reassociation = eip.allow_reassociation.unwrap_or(true);
@@ -200,7 +174,7 @@ async fn main() -> Result<(), std::io::Error> {
         println!("Success!");
         println!("{response:?}");
       }
-      Action::Ipv4(ip) => {
+      types::Action::Ipv4(ip) => {
         let network_interface_id = network_interface_id(imds_client.clone()).await;
         let response = ec2_client
           .assign_private_ip_addresses()
@@ -213,7 +187,7 @@ async fn main() -> Result<(), std::io::Error> {
         println!("Success!");
         println!("{response:?}");
       }
-      Action::Ipv6(ip) => {
+      types::Action::Ipv6(ip) => {
         let network_interface_id = network_interface_id(imds_client.clone()).await;
         let response = ec2_client
           .assign_ipv6_addresses()

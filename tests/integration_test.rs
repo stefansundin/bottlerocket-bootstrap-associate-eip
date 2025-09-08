@@ -547,7 +547,13 @@ mod tests {
       region: "us-west-2",
     };
 
-    const USER_DATA: &str = const_str::concat!(r#"[{"AllocationId":""#, SERVICE.allocation_id, r#""},"10.3.0.10","fd12:3456:789a:1::a"]"#);
+    const USER_DATA: &str = const_str::concat!(
+      r#"[{"AllocationId":""#,
+      SERVICE.allocation_id,
+      r#""},""#,
+      SERVICE.allocation_id,
+      r#"","10.3.0.10","fd12:3456:789a:1::a"]"#
+    );
 
     let (addr, webserver_task) = start_webserver(SERVICE).await?;
     let (status, stdout, _) = run_program(USER_DATA, addr).await?;
@@ -559,6 +565,10 @@ mod tests {
       [
         const_str::concat!("Region: ", SERVICE.region),
         const_str::concat!("Instance ID: ", SERVICE.instance_id),
+        const_str::concat!("Allocation ID: ", SERVICE.allocation_id),
+        const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
+        "Success!",
+        r#"AssociateAddressOutput { association_id: Some("eipassoc-01234567890abcdef"), _request_id: None }"#,
         const_str::concat!("Allocation ID: ", SERVICE.allocation_id),
         const_str::concat!("Allow Reassociation: ", SERVICE.allow_reassociation),
         "Success!",
