@@ -511,7 +511,7 @@ dependencies = [
 
 [[package]]
 name = "bottlerocket-bootstrap-associate-eip"
-version = "0.2.4"
+version = "0.3.0"
 dependencies = [
  "aws-config",
  "aws-sdk-ec2",

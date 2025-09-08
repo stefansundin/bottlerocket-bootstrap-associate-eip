@@ -83,7 +83,7 @@ echo '[{"Filters":[{"Name":"tag:Pool","Values":["ecs"]}]},"10.3.0.10","2600:1f14
 
 ## Supported Bottlerocket versions
 
-Tested on Bottlerocket v1.9.2, v1.10.0, v1.26.2, v1.34.0, and v1.44.0.
+Tested on Bottlerocket v1.9.2, v1.10.0, v1.26.2, v1.34.0, v1.44.0, and v1.45.0.
 
 
 ## IAM Permissions
