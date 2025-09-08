@@ -42,6 +42,15 @@ async fn network_interface_id(imds_client: aws_config::imds::client::Client) -> 
 async fn main() -> Result<(), std::io::Error> {
   env_logger::init();
 
+  #[cfg(feature = "tracing")]
+  {
+    use tracing_subscriber::FmtSubscriber;
+    use tracing_subscriber::filter::LevelFilter;
+
+    let subscriber = FmtSubscriber::builder().with_max_level(LevelFilter::TRACE).finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+  }
+
   // Read the container user-data
   let user_data_path = std::env::var("USER_DATA_PATH").unwrap_or("/.bottlerocket/bootstrap-containers/current/user-data".to_string());
   let userdata = std::fs::read_to_string(user_data_path).expect("could not read container user-data");

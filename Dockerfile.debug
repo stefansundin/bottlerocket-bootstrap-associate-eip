@@ -28,7 +28,7 @@ RUN case "$TARGETARCH" in \
       *) echo "Does not support $TARGETARCH" && exit 1 ;; \
     esac && \
     rustup target add $TARGET && \
-    cargo build --target $TARGET --profile $CARGO_BUILD_PROFILE && \
+    cargo build --target $TARGET --profile $CARGO_BUILD_PROFILE --features tracing && \
     mv target/$TARGET/$CARGO_BUILD_PROFILE/bottlerocket-bootstrap-associate-eip /dist/
 
 
