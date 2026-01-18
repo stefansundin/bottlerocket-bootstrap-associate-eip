@@ -392,7 +392,8 @@ mod tests {
       .join("\n")
     );
     assert_eq!(stderr_lines[0], "");
-    assert!(stderr_lines[1].starts_with("thread 'main' panicked at src/main.rs:"));
+    assert!(stderr_lines[1].starts_with("thread 'main' ("));
+    assert!(stderr_lines[1].contains(") panicked at src/main.rs:"));
     assert!(stderr_lines[2].starts_with(r#"could not associate EIP: ServiceError(ServiceError { source: Unhandled(Unhandled { source: ErrorMetadata { code: Some("Resource.AlreadyAssociated"), message: Some("resource eipalloc-01234567890abcdef is already associated with associate-id eipassoc-01234567890abcdef"), extras: None }, meta: ErrorMetadata { code: Some("Resource.AlreadyAssociated"), message: Some("resource eipalloc-01234567890abcdef is already associated with associate-id eipassoc-01234567890abcdef"), extras: None } }), raw: Response { status: StatusCode(400)"#));
 
     Ok(())
@@ -635,7 +636,7 @@ mod tests {
 
     assert!(!status.success());
     assert_eq!(stdout, "");
-    assert!(stderr.contains("thread 'main' panicked"));
+    assert!(stderr.contains("panicked"));
 
     Ok(())
   }
